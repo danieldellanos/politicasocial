@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "848691338471",
+    "firebase_url": "https://itoptraining-aa474.firebaseio.com",
+    "project_id": "itoptraining-aa474",
+    "storage_bucket": "itoptraining-aa474.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:848691338471:android:ea1ab93b2a04d69c8b1642",
+        "android_client_info": {
+          "package_name": "com.politicasocial.mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "848691338471-1irn86diovon3jugduc86up6ca0giho8.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0Le3Qf0nHRvElOC2j5Goq8Vl4l7fkIYU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "848691338471-1irn86diovon3jugduc86up6ca0giho8.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }  
+  ],
+  "configuration_version": "1"
+}
