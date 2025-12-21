@@ -1579,7 +1579,6 @@ export type CoreLoginSSOData = CoreRedirectPayload & {
 export type AuthEmailSignupSettings = {
     namefields: string[];
     passwordpolicy?: string; // Password policy.
-    usernamepolicy?: string; // Username policy.
     sitepolicy?: string; // Site policy.
     sitepolicyhandler?: string; // Site policy handler.
     defaultcity?: string; // Default city.

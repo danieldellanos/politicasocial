@@ -58,7 +58,7 @@ import { CoreUserProfileFieldComponent } from '@features/user/components/user-pr
 export default class CoreLoginEmailSignupPage implements OnInit {
 
     // Accept A-Z in strict chars pattern to be able to differentiate it from the lowercase pattern.
-    protected static readonly USERNAME_STRICT_CHARS_PATTERN = '^[-.@_a-z0-9]*$';
+    protected static readonly USERNAME_STRICT_CHARS_PATTERN = '^[A-Z-.@_a-z0-9]*$';
     protected static readonly USERNAME_LOWERCASE_PATTERN = '^[^A-Z]*$';
 
     @ViewChild(CoreRecaptchaComponent) recaptchaComponent?: CoreRecaptchaComponent;
@@ -121,7 +121,10 @@ export default class CoreLoginEmailSignupPage implements OnInit {
         // Setup validation errors.
         this.usernameErrors = {
             required: 'core.login.usernamerequired',
-            pattern: 'core.login.invalidusername',
+            pattern: {
+                [CoreLoginEmailSignupPage.USERNAME_STRICT_CHARS_PATTERN]: 'core.login.invalidusername',
+                [CoreLoginEmailSignupPage.USERNAME_LOWERCASE_PATTERN]: 'core.login.usernamelowercase',
+            },
         };
         this.passwordErrors = { required: 'core.login.passwordrequired' };
         this.emailErrors = { required: 'core.login.missingemail' };
@@ -160,7 +163,8 @@ export default class CoreLoginEmailSignupPage implements OnInit {
         const checkStrictChars = this.settings?.extendedusernamechars === false;
         this.signupForm.addControl('username', this.fb.control('', Validators.compose([
             Validators.required,
-            Validators.pattern(CoreLoginEmailSignupPage.USERNAME_STRICT_CHARS_PATTERN)
+            Validators.pattern(CoreLoginEmailSignupPage.USERNAME_LOWERCASE_PATTERN),
+            checkStrictChars ?  Validators.pattern(CoreLoginEmailSignupPage.USERNAME_STRICT_CHARS_PATTERN) : undefined,
         ])));
 
         this.signupForm.addControl('city', this.fb.control(this.settings?.defaultcity || ''));

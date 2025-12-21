@@ -84,13 +84,12 @@ $core-dd-question-colors: #FFFFFF, #B0C4DE, #DCDCDC, #D8BFD8, #87CEFA, #DAA520, 
 $core-text-hightlight-background-color: lighten($blue, 40%) !default;
 
 $core-fixed-url: false !default;
-$core-dashboard-logo: false !default;
-$core-always-show-main-menu: true !default;
+$core-always-show-main-menu: false !default;
 $core-format-text-never-shorten: false !default;
 
 $core-hide-courseimage-on-course: false !default;
-$core-hide-progress-on-course: true !default;
-$core-hide-progress-on-section-selector: true !default;
+$core-hide-progress-on-course: false !default;
+$core-hide-progress-on-section-selector: false !default;
 
 $core-course-hide-progress-on-list-items: false !default;
 $core-course-hide-thumb-on-cards: false !default;
