@@ -30,7 +30,6 @@ import { CoreSites } from '@services/sites';
     selector: 'addon-calendar-filter',
     templateUrl: 'filter.html',
     styleUrls: ['../../calendar-common.scss', 'filter.scss'],
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
@@ -77,6 +76,10 @@ export class AddonCalendarFilterComponent implements OnInit {
 
             if (b.id === ALL_COURSES_ID) {
                 return 1;
+            }
+
+            if (this.showFullName) {
+                return (a.fullname?.toLowerCase() ?? '').localeCompare(b.fullname?.toLowerCase() ?? '');
             }
 
             return (a.shortname?.toLowerCase() ?? '').localeCompare(b.shortname?.toLowerCase() ?? '');

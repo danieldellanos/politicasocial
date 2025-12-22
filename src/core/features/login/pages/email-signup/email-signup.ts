@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, ViewChild, ElementRef, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, ElementRef, OnInit, ChangeDetectorRef, inject, viewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, FormControl } from '@angular/forms';
 import { CoreText } from '@singletons/text';
 import { CoreCountries, CoreCountry } from '@singletons/countries';
@@ -49,7 +49,6 @@ import { CoreUserProfileFieldComponent } from '@features/user/components/user-pr
     selector: 'page-core-login-email-signup',
     templateUrl: 'email-signup.html',
     styleUrl: '../../login.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreUserProfileFieldComponent,
@@ -61,9 +60,9 @@ export default class CoreLoginEmailSignupPage implements OnInit {
     protected static readonly USERNAME_STRICT_CHARS_PATTERN = '^[A-Z-.@_a-z0-9]*$';
     protected static readonly USERNAME_LOWERCASE_PATTERN = '^[^A-Z]*$';
 
-    @ViewChild(CoreRecaptchaComponent) recaptchaComponent?: CoreRecaptchaComponent;
-    @ViewChild('ageForm') ageFormElement?: ElementRef;
-    @ViewChild('signupFormEl') signupFormElement?: ElementRef;
+    readonly recaptchaComponent = viewChild(CoreRecaptchaComponent);
+    readonly ageFormElement = viewChild<ElementRef>('ageForm');
+    readonly signupFormElement = viewChild<ElementRef>('signupFormEl');
 
     signupForm: FormGroup;
     site!: CoreUnauthenticatedSite;
@@ -99,11 +98,11 @@ export default class CoreLoginEmailSignupPage implements OnInit {
     policyErrors: CoreInputErrorsMessages;
     namefieldsErrors?: Record<string, CoreInputErrorsMessages>;
 
-    constructor(
-        protected fb: FormBuilder,
-        protected elementRef: ElementRef,
-        protected changeDetector: ChangeDetectorRef,
-    ) {
+    protected fb = inject(FormBuilder);
+    protected element: HTMLElement = inject(ElementRef).nativeElement;
+    protected changeDetector = inject(ChangeDetectorRef);
+
+    constructor() {
         // Create the ageVerificationForm.
         this.ageVerificationForm = this.fb.group({
             age: ['', Validators.required],
@@ -304,7 +303,7 @@ export default class CoreLoginEmailSignupPage implements OnInit {
 
             // Scroll to the first element with errors.
             const errorFound = await CoreDom.scrollToInputError(
-                this.elementRef.nativeElement,
+                this.element,
             );
 
             if (!errorFound) {
@@ -353,14 +352,14 @@ export default class CoreLoginEmailSignupPage implements OnInit {
 
             if (result.success) {
 
-                CoreForms.triggerFormSubmittedEvent(this.signupFormElement, true);
+                CoreForms.triggerFormSubmittedEvent(this.signupFormElement(), true);
 
                 // Show alert and ho back.
                 const message = Translate.instant('core.login.emailconfirmsent', { $a: params.email });
                 CoreAlerts.show({ header: Translate.instant('core.success'), message });
                 CoreNavigator.back();
             } else {
-                this.recaptchaComponent?.expireRecaptchaAnswer();
+                this.recaptchaComponent()?.expireRecaptchaAnswer();
 
                 const warning = result.warnings?.[0];
                 if (warning) {
@@ -433,7 +432,7 @@ export default class CoreLoginEmailSignupPage implements OnInit {
         try {
             const result = await CoreWS.callAjax<IsMinorWSResult>('core_auth_is_minor', params, { siteUrl: this.site.getURL() });
 
-            CoreForms.triggerFormSubmittedEvent(this.ageFormElement, true);
+            CoreForms.triggerFormSubmittedEvent(this.ageFormElement(), true);
 
             if (!result.status) {
                 if (this.countryControl.value) {

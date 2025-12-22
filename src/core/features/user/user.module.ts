@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { APP_INITIALIZER, NgModule, Type } from '@angular/core';
+import { NgModule, Type, provideAppInitializer } from '@angular/core';
 import { Routes } from '@angular/router';
 
 import { CoreMainMenuTabRoutingModule } from '@features/mainmenu/mainmenu-tab-routing.module';
@@ -35,6 +35,7 @@ import { CoreScreen } from '@services/screen';
 import { CoreEvents } from '@singletons/events';
 import { CORE_COURSE_PAGE_NAME, CORE_COURSE_INDEX_PATH } from '@features/course/constants';
 import { PARTICIPANTS_PAGE_NAME } from './constants';
+import { CoreUserParticipantsLinkHandler } from './services/handlers/participants-link';
 
 /**
  * Get user services.
@@ -46,7 +47,7 @@ export async function getUsersServices(): Promise<Type<unknown>[]> {
     const { CoreUserHelperProvider } = await import('@features/user/services/user-helper');
     const { CoreUserDelegateService } = await import('@features/user/services/user-delegate');
     const { CoreUserProfileFieldDelegateService } = await import('@features/user/services/user-profile-field-delegate');
-    const { CoreUserOfflineProvider } = await import('@features/user/services/user-offline');
+    const { CoreUserPreferencesService } = await import('@features/user/services/user-preferences');
     const { CoreUserSyncProvider } = await import('@features/user/services/user-sync');
 
     return [
@@ -54,7 +55,7 @@ export async function getUsersServices(): Promise<Type<unknown>[]> {
         CoreUserHelperProvider,
         CoreUserDelegateService,
         CoreUserProfileFieldDelegateService,
-        CoreUserOfflineProvider,
+        CoreUserPreferencesService,
         CoreUserSyncProvider,
     ];
 }
@@ -138,21 +139,18 @@ const courseIndexRoutes: Routes = [
             ],
             multi: true,
         },
-        {
-            provide: APP_INITIALIZER,
-            multi: true,
-            useValue: () => {
-                CoreUserDelegate.registerHandler(CoreUserProfileMailHandler.instance);
-                CoreContentLinksDelegate.registerHandler(CoreUserProfileLinkHandler.instance);
-                CoreCronDelegate.register(CoreUserSyncCronHandler.instance);
-                CoreTagAreaDelegate.registerHandler(CoreUserTagAreaHandler.instance);
-                CoreCourseOptionsDelegate.registerHandler(CoreUserCourseOptionHandler.instance);
+        provideAppInitializer(() => {
+            CoreUserDelegate.registerHandler(CoreUserProfileMailHandler.instance);
+            CoreContentLinksDelegate.registerHandler(CoreUserProfileLinkHandler.instance);
+            CoreContentLinksDelegate.registerHandler(CoreUserParticipantsLinkHandler.instance);
+            CoreCronDelegate.register(CoreUserSyncCronHandler.instance);
+            CoreTagAreaDelegate.registerHandler(CoreUserTagAreaHandler.instance);
+            CoreCourseOptionsDelegate.registerHandler(CoreUserCourseOptionHandler.instance);
 
-                CoreEvents.on(CoreEvents.USER_NOT_FULLY_SETUP, (data) => {
-                    CoreUserHelper.openCompleteProfile(data.siteId);
-                });
-            },
-        },
+            CoreEvents.on(CoreEvents.USER_NOT_FULLY_SETUP, (data) => {
+                CoreUserHelper.openCompleteProfile(data.siteId);
+            });
+        }),
     ],
 })
 export class CoreUserModule {}

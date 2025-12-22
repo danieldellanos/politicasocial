@@ -12,12 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { HTTP_INTERCEPTORS } from '@angular/common/http';
 import { ApplicationInitStatus, Injector, NgModule, Type } from '@angular/core';
 
 import { CoreApplicationInitStatus } from './classes/application-init-status';
 import { CoreFeaturesModule } from './features/features.module';
-import { CoreInterceptor } from './classes/interceptor';
 import { getDatabaseProviders } from './services/database';
 import { getInitializerProviders } from './initializers';
 
@@ -58,21 +56,21 @@ export async function getCoreServices(): Promise<Type<unknown>[]> {
     const { CorePromptsService } = await import('@services/overlays/prompts');
     const { CoreToastsService } = await import('@services/overlays/toasts');
 
-    // eslint-disable-next-line deprecation/deprecation
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const { CoreDomUtilsProvider } = await import('@services/utils/dom');
-    // eslint-disable-next-line deprecation/deprecation
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const { CoreGeolocationProvider } = await import('@services/geolocation');
-    // eslint-disable-next-line deprecation/deprecation
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const { CoreTextUtilsProvider } = await import('@services/utils/text');
-    // eslint-disable-next-line deprecation/deprecation
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const { CoreTimeUtilsProvider } = await import('@services/utils/time');
-    // eslint-disable-next-line deprecation/deprecation
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const { CoreUrlUtilsProvider } = await import('@services/utils/url');
-    // eslint-disable-next-line deprecation/deprecation
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const { CoreUtilsProvider } = await import('@services/utils/utils');
-    // eslint-disable-next-line deprecation/deprecation
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const { CoreMimetypeUtilsProvider } = await import('@services/utils/mimetype');
-    // eslint-disable-next-line deprecation/deprecation
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const { CoreIframeUtilsProvider } = await import('@services/utils/iframe');
 
     return [
@@ -146,7 +144,6 @@ export async function getCoreExportedObjects(): Promise<Record<string, unknown>>
         CoreFeaturesModule,
     ],
     providers: [
-        { provide: HTTP_INTERCEPTORS, useClass: CoreInterceptor, multi: true },
         { provide: ApplicationInitStatus, useClass: CoreApplicationInitStatus, deps: [Injector] },
         ...getDatabaseProviders(),
         ...getInitializerProviders(),

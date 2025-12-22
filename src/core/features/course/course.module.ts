@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { APP_INITIALIZER, NgModule, Type } from '@angular/core';
+import { NgModule, Type, provideAppInitializer } from '@angular/core';
 import { Routes } from '@angular/router';
 
 import { CoreMainMenuTabRoutingModule } from '@features/mainmenu/mainmenu-tab-routing.module';
@@ -31,7 +31,11 @@ import { CoreCourseModulesTagAreaHandler } from './services/handlers/modules-tag
 import { CoreCourse } from './services/course';
 import { buildRegExpUrlMatcher } from '@/app/app-routing.module';
 import { CoreCourseIndexRoutingModule } from '@features/course/course-routing.module';
-import { CORE_COURSE_PAGE_NAME, CORE_COURSE_CONTENTS_PAGE_NAME } from './constants';
+import { CORE_COURSE_PAGE_NAME, CORE_COURSE_CONTENTS_PAGE_NAME, CORE_COURSE_OVERVIEW_PAGE_NAME } from './constants';
+import { CoreCourseOptionsDelegate } from '@features/course/services/course-options-delegate';
+import { CoreCourseOverviewOptionHandler } from './services/handlers/overview-option';
+import { CoreCourseOverviewLinkHandler } from './services/handlers/overview-link';
+import { CoreContentLinksDelegate } from '@features/contentlinks/services/contentlinks-delegate';
 
 /**
  * Get course services.
@@ -126,16 +130,12 @@ export async function getCourseExportedDirectives(): Promise<Type<unknown>[]> {
 
     const { CoreCourseDownloadModuleMainFileDirective } = await import('@features/course/directives/download-module-main-file');
 
-    // eslint-disable-next-line deprecation/deprecation
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const { CoreCourseModuleDescriptionComponent } =
         await import('@features/course/components/module-description/module-description');
-    // eslint-disable-next-line deprecation/deprecation
-    const { CoreCourseModuleManualCompletionComponent } =
-        await import('@features/course/components/module-manual-completion/module-manual-completion');
 
     return [
         CoreCourseModuleDescriptionComponent,
-        CoreCourseModuleManualCompletionComponent,
         CoreCourseFormatComponent,
         CoreCourseSectionComponent,
         CoreCourseModuleComponent,
@@ -159,6 +159,10 @@ const courseIndexRoutes: Routes = [
         path: CORE_COURSE_CONTENTS_PAGE_NAME,
         loadChildren: () => import('@features/course/course-contents-lazy.module'),
     },
+    {
+        path: CORE_COURSE_OVERVIEW_PAGE_NAME,
+        loadComponent: () => import('@features/course/pages/overview/overview'),
+    },
 ];
 
 @NgModule({
@@ -173,19 +177,17 @@ const courseIndexRoutes: Routes = [
             useValue: [COURSE_SITE_SCHEMA, COURSE_OFFLINE_SITE_SCHEMA, LOG_SITE_SCHEMA, PREFETCH_SITE_SCHEMA],
             multi: true,
         },
-        {
-            provide: APP_INITIALIZER,
-            multi: true,
-            useValue: () => {
-                CoreCronDelegate.register(CoreCourseSyncCronHandler.instance);
-                CoreCronDelegate.register(CoreCourseLogCronHandler.instance);
-                CoreTagAreaDelegate.registerHandler(CoreCourseTagAreaHandler.instance);
-                CoreTagAreaDelegate.registerHandler(CoreCourseModulesTagAreaHandler.instance);
+        provideAppInitializer(() => {
+            CoreCronDelegate.register(CoreCourseSyncCronHandler.instance);
+            CoreCronDelegate.register(CoreCourseLogCronHandler.instance);
+            CoreTagAreaDelegate.registerHandler(CoreCourseTagAreaHandler.instance);
+            CoreTagAreaDelegate.registerHandler(CoreCourseModulesTagAreaHandler.instance);
+            CoreCourseOptionsDelegate.registerHandler(CoreCourseOverviewOptionHandler.instance);
+            CoreContentLinksDelegate.registerHandler(CoreCourseOverviewLinkHandler.instance);
 
-                CoreCourse.initialize();
-                CoreCourseModulePrefetchDelegate.initialize();
-            },
-        },
+            CoreCourse.initialize();
+            CoreCourseModulePrefetchDelegate.initialize();
+        }),
     ],
 })
 export class CoreCourseModule {}

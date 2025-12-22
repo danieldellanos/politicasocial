@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, viewChild } from '@angular/core';
 import { CoreNetwork } from '@services/network';
 import { CoreEventObserver, CoreEvents } from '@singletons/events';
 import { CoreSites } from '@services/sites';
@@ -21,8 +21,7 @@ import { AddonCalendar } from '../../services/calendar';
 import { AddonCalendarOffline } from '../../services/calendar-offline';
 import { AddonCalendarSync } from '../../services/calendar-sync';
 import { AddonCalendarFilter, AddonCalendarHelper } from '../../services/calendar-helper';
-import { NgZone, Translate } from '@singletons';
-import { Subscription } from 'rxjs';
+import { Translate } from '@singletons';
 import { CoreEnrolledCourseData } from '@features/courses/services/courses';
 import { ActivatedRoute, Params } from '@angular/router';
 import { AddonCalendarCalendarComponent } from '../../components/calendar/calendar';
@@ -50,7 +49,6 @@ import { CoreMainMenuUserButtonComponent } from '@features/mainmenu/components/u
 @Component({
     selector: 'page-addon-calendar-index',
     templateUrl: 'index.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
         AddonCalendarCalendarComponent,
@@ -60,8 +58,8 @@ import { CoreMainMenuUserButtonComponent } from '@features/mainmenu/components/u
 })
 export default class AddonCalendarIndexPage implements OnInit, OnDestroy {
 
-    @ViewChild(AddonCalendarCalendarComponent) calendarComponent?: AddonCalendarCalendarComponent;
-    @ViewChild(AddonCalendarUpcomingEventsComponent) upcomingEventsComponent?: AddonCalendarUpcomingEventsComponent;
+    readonly calendarComponent = viewChild(AddonCalendarCalendarComponent);
+    readonly upcomingEventsComponent = viewChild(AddonCalendarUpcomingEventsComponent);
 
     protected currentSiteId: string;
     protected initialized = false;
@@ -74,8 +72,8 @@ export default class AddonCalendarIndexPage implements OnInit, OnDestroy {
     protected undeleteEventObserver?: CoreEventObserver;
     protected syncObserver?: CoreEventObserver;
     protected manualSyncObserver?: CoreEventObserver;
-    protected onlineObserver?: Subscription;
     protected filterChangedObserver?: CoreEventObserver;
+    protected route = inject(ActivatedRoute);
 
     year?: number;
     month?: number;
@@ -83,7 +81,7 @@ export default class AddonCalendarIndexPage implements OnInit, OnDestroy {
     courses: CoreEnrolledCourseData[] = [];
     loaded = false;
     hasOffline = false;
-    isOnline = false;
+    readonly isOnline = CoreNetwork.onlineSignal;
     syncIcon = CoreConstants.ICON_LOADING;
     showCalendar = true;
     loadUpcoming = false;
@@ -98,9 +96,7 @@ export default class AddonCalendarIndexPage implements OnInit, OnDestroy {
         category: true,
     };
 
-    constructor(
-        protected route: ActivatedRoute,
-    ) {
+    constructor() {
         this.currentSiteId = CoreSites.getCurrentSiteId();
 
         // Listen for events added. When an event is added, reload the data.
@@ -161,20 +157,12 @@ export default class AddonCalendarIndexPage implements OnInit, OnDestroy {
         this.filterChangedObserver = CoreEvents.on(
             ADDON_CALENDAR_FILTER_CHANGED_EVENT,
             async (filterData) => {
-                this.filter = filterData;
+                this.filter = { ...filterData };
 
                 // Course viewed has changed, check if the user can create events for this course calendar.
                 this.canCreate = await AddonCalendarHelper.canEditEvents(this.filter.courseId);
             },
         );
-
-        // Refresh online status when changes.
-        this.onlineObserver = CoreNetwork.onChange().subscribe(() => {
-            // Execute the callback in the Angular zone, so change detection doesn't stop working.
-            NgZone.run(() => {
-                this.isOnline = CoreNetwork.isOnline();
-            });
-        });
     }
 
     /**
@@ -192,8 +180,9 @@ export default class AddonCalendarIndexPage implements OnInit, OnDestroy {
 
             this.fetchData(true, false);
 
-            if (this.year !== undefined && this.month !== undefined && this.calendarComponent) {
-                this.calendarComponent.viewMonth(this.month, this.year);
+            const calendarComponent = this.calendarComponent();
+            if (this.year !== undefined && this.month !== undefined && calendarComponent) {
+                calendarComponent.viewMonth(this.month, this.year);
             }
         });
 
@@ -210,7 +199,6 @@ export default class AddonCalendarIndexPage implements OnInit, OnDestroy {
     async fetchData(sync?: boolean, showErrors?: boolean): Promise<void> {
 
         this.syncIcon = CoreConstants.ICON_LOADING;
-        this.isOnline = CoreNetwork.isOnline();
 
         let refreshComponent = false;
 
@@ -324,9 +312,9 @@ export default class AddonCalendarIndexPage implements OnInit, OnDestroy {
      */
     protected async refreshComponentData(afterChange = false): Promise<void> {
         if (this.showCalendar) {
-            await this.calendarComponent?.refreshData(afterChange);
+            await this.calendarComponent()?.refreshData(afterChange);
         } else {
-            await this.upcomingEventsComponent?.refreshData();
+            await this.upcomingEventsComponent()?.refreshData();
         }
     }
 
@@ -419,7 +407,6 @@ export default class AddonCalendarIndexPage implements OnInit, OnDestroy {
         this.syncObserver?.off();
         this.manualSyncObserver?.off();
         this.filterChangedObserver?.off();
-        this.onlineObserver?.unsubscribe();
     }
 
 }

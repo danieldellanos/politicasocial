@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, ElementRef, Input, OnInit, Type, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnInit, Type, inject, viewChild } from '@angular/core';
 import { FormGroup, FormBuilder } from '@angular/forms';
 import { CoreTag } from '@features/tag/services/tag';
 import { CoreSites } from '@services/sites';
@@ -40,7 +40,6 @@ import { CoreCompileHtmlComponent } from '@features/compile/components/compile-h
     selector: 'addon-mod-data-search-modal',
     templateUrl: 'search-modal.html',
     styleUrls: ['../../data.scss', '../../data-forms.scss'],
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreCompileHtmlComponent,
@@ -48,7 +47,7 @@ import { CoreCompileHtmlComponent } from '@features/compile/components/compile-h
 })
 export class AddonModDataSearchModalComponent implements OnInit {
 
-    @ViewChild('searchFormEl') formElement!: ElementRef;
+    readonly formElement = viewChild.required<ElementRef>('searchFormEl');
 
     @Input({ required: true }) search!: AddonModDataSearchDataParams;
     @Input({ required: true }) fields!: Record<number, AddonModDataField>;
@@ -58,7 +57,7 @@ export class AddonModDataSearchModalComponent implements OnInit {
     advancedIndexed: CoreFormFields = {};
     extraImports?: Type<unknown>[];
 
-    searchForm: FormGroup;
+    searchForm: FormGroup = new FormGroup({});
     jsData?: {
         fields: Record<number, AddonModDataField>;
         form: FormGroup;
@@ -67,11 +66,7 @@ export class AddonModDataSearchModalComponent implements OnInit {
 
     fieldsArray: AddonModDataField[] = [];
 
-    constructor(
-        protected fb: FormBuilder,
-    ) {
-        this.searchForm = new FormGroup({});
-    }
+    protected fb = inject(FormBuilder);
 
     async ngOnInit(): Promise<void> {
         this.advancedIndexed = {};
@@ -216,7 +211,7 @@ export class AddonModDataSearchModalComponent implements OnInit {
      * Close modal.
      */
     closeModal(): void {
-        CoreForms.triggerFormCancelledEvent(this.formElement, CoreSites.getCurrentSiteId());
+        CoreForms.triggerFormCancelledEvent(this.formElement(), CoreSites.getCurrentSiteId());
 
         ModalController.dismiss();
     }
@@ -243,7 +238,7 @@ export class AddonModDataSearchModalComponent implements OnInit {
         this.search.sortBy = searchedData.sortBy;
         this.search.sortDirection = searchedData.sortDirection;
 
-        CoreForms.triggerFormSubmittedEvent(this.formElement, false, CoreSites.getCurrentSiteId());
+        CoreForms.triggerFormSubmittedEvent(this.formElement(), false, CoreSites.getCurrentSiteId());
 
         ModalController.dismiss(this.search);
     }

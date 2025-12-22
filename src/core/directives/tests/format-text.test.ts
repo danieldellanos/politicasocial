@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { IonContent } from '@ionic/angular';
-import Faker from 'faker';
+import { faker } from '@faker-js/faker';
 
 import { CoreConfig } from '@services/config';
 import { CoreContentLinksHelper } from '@features/contentlinks/services/contentlinks-helper';
@@ -50,13 +50,12 @@ describe('CoreFormatTextDirective', () => {
             providers: [
                 { provide: IonContent, useValue: null },
             ],
-            standalone: true,
         };
     });
 
     it('should render', async () => {
         // Arrange
-        const sentence = Faker.lorem.sentence();
+        const sentence = faker.lorem.sentence();
 
         // Act
         const fixture = await renderWrapperComponent(
@@ -80,7 +79,6 @@ describe('CoreFormatTextDirective', () => {
         const { nativeElement } = await renderTemplate(
             CoreFormatTextDirective,
             '<core-format-text text="Lorem ipsum dolor"></core-format-text>',
-            { standalone: true },
         );
 
         // Assert
@@ -93,7 +91,7 @@ describe('CoreFormatTextDirective', () => {
             'Lorem ipsum dolor',
             expect.anything(),
             expect.anything(),
-            undefined,
+            '',
         );
     });
 
@@ -125,7 +123,6 @@ describe('CoreFormatTextDirective', () => {
                 contextLevel="course"
                 [contextInstanceId]="42"
             ></core-format-text>`,
-            { standalone: true },
         );
 
         // Assert
@@ -184,7 +181,6 @@ describe('CoreFormatTextDirective', () => {
             CoreFormatTextDirective,
             'core-format-text',
             { text: '<a href="https://anchor-url/">Link</a>' },
-            { standalone: true },
         );
         const anchor = nativeElement.querySelector('a');
 

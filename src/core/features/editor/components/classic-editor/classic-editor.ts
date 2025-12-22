@@ -20,6 +20,8 @@ import {
     ElementRef,
     OnInit,
     OnDestroy,
+    inject,
+    viewChild,
 } from '@angular/core';
 import { IonTextarea } from '@ionic/angular';
 import { CoreUtils } from '@singletons/utils';
@@ -36,6 +38,7 @@ import { CoreWait } from '@singletons/wait';
 import { CoreQRScan } from '@services/qrscan';
 import { CoreSharedModule } from '@/core/shared.module';
 import { CoreEditorBaseComponent } from '@features/editor/classes/base-editor-component';
+import { CoreEventObserver } from '@singletons/events';
 
 /**
  * Implementation of the classic rich text editor.
@@ -46,7 +49,6 @@ import { CoreEditorBaseComponent } from '@features/editor/classes/base-editor-co
     selector: 'core-editor-classic-editor',
     templateUrl: 'core-editor-classic-editor.html',
     styleUrl: 'classic-editor.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
@@ -57,12 +59,12 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
     // Based on: https://github.com/judgewest2000/Ionic3RichText/
 
     protected editorElement?: HTMLDivElement; // WYSIWYG editor.
-    @ViewChild('editor') editor?: ElementRef<HTMLDivElement>;
+    readonly editor = viewChild<ElementRef<HTMLDivElement>>('editor');
 
-    @ViewChild('toolbar') toolbar?: ElementRef<HTMLDivElement>;
+    readonly toolbar = viewChild<ElementRef<HTMLDivElement>>('toolbar');
 
     protected textareaElement?: HTMLTextAreaElement;
-    @ViewChild('textarea') textarea?: IonTextarea; // Textarea editor.
+    readonly textarea = viewChild<IonTextarea>('textarea'); // Textarea editor.
 
     protected toolbarSlides?: Swiper;
     @ViewChild('swiperRef') set swiperRef(swiperRef: ElementRef) {
@@ -82,16 +84,17 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
         });
     }
 
-    protected readonly RESTORE_MESSAGE_CLEAR_TIME = 6000;
-    protected readonly SAVE_MESSAGE_CLEAR_TIME = 2000;
+    protected static readonly RESTORE_MESSAGE_CLEAR_TIME = 6000;
+    protected static readonly SAVE_MESSAGE_CLEAR_TIME = 2000;
 
-    protected element: HTMLElement;
+    protected element: HTMLElement = inject(ElementRef).nativeElement;
 
     protected contentObserver?: MutationObserver;
     protected isCurrentView = true;
     protected toolbarButtonWidth = 44;
     protected toolbarArrowWidth = 44;
     protected selectionChangeFunction = (): void => this.updateToolbarStyles();
+    protected resizeListener?: CoreEventObserver;
     protected domPromise?: CoreCancellablePromise<void>;
     protected buttonsDomPromise?: CoreCancellablePromise<void>;
     protected shortcutCommands?: Record<string, EditorCommand>;
@@ -127,13 +130,6 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
         watchSlidesProgress: true,
     };
 
-    constructor(
-        elementRef: ElementRef,
-    ) {
-        super();
-        this.element = elementRef.nativeElement;
-    }
-
     /**
      * @inheritdoc
      */
@@ -150,12 +146,16 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
         await this.waitLoadingsDone();
 
         // Setup the editor.
-        this.editorElement = this.editor?.nativeElement as HTMLDivElement;
-        this.textareaElement = await this.textarea?.getInputElement();
+        this.editorElement = this.editor()?.nativeElement as HTMLDivElement;
+        this.textareaElement = await this.textarea()?.getInputElement();
 
         // Use paragraph on enter.
-        // eslint-disable-next-line deprecation/deprecation
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
         document.execCommand('DefaultParagraphSeparator', false, 'p');
+
+        this.resizeListener = CoreDom.onWindowResize(() => {
+            this.onWindowResize();
+        }, 50);
 
         document.addEventListener('selectionchange', this.selectionChangeFunction);
         this.updateToolbarButtons();
@@ -271,7 +271,8 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
      * @inheritdoc
      */
     setContent(content: string): void {
-        if (!this.editorElement || !this.textarea) {
+        const textarea = this.textarea();
+        if (!this.editorElement || !textarea) {
             return;
         }
 
@@ -279,7 +280,7 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
         if (this.rteEnabled) {
             this.editorElement.innerHTML = this.isEmpty ? '<p></p>' : content;
         } else {
-            this.textarea.value = this.isEmpty ? '' : content;
+            textarea.value = this.isEmpty ? '' : content;
         }
 
         // Set cursor to the end of the content.
@@ -323,7 +324,7 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
      */
     protected executeCommand({ name: command, parameters }: EditorCommand): void {
         if (parameters === 'block') {
-            // eslint-disable-next-line deprecation/deprecation
+            // eslint-disable-next-line @typescript-eslint/no-deprecated
             document.execCommand('formatBlock', false, '<' + command + '>');
 
             return;
@@ -333,7 +334,7 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
             this.toolbarStyles[parameters] = this.toolbarStyles[parameters] == 'true' ? 'false' : 'true';
         }
 
-        // eslint-disable-next-line deprecation/deprecation
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
         document.execCommand(command, false);
     }
 
@@ -384,7 +385,7 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
         if (this.rteEnabled) {
             this.editorElement?.focus();
         } else {
-            this.textarea?.setFocus();
+            this.textarea()?.setFocus();
         }
 
         this.element.classList.add('ion-touched');
@@ -468,7 +469,8 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
      * Update the number of toolbar buttons displayed.
      */
     async updateToolbarButtons(): Promise<void> {
-        if (!this.isCurrentView || !this.toolbar || !this.toolbarSlides ||
+        const toolbar = this.toolbar();
+        if (!this.isCurrentView || !toolbar || !this.toolbarSlides ||
             this.toolbarHidden || this.element.offsetParent === null) {
             // Don't calculate if component isn't in current view, the calculations are wrong.
             return;
@@ -478,10 +480,10 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
 
         // Cancel previous one, if any.
         this.buttonsDomPromise?.cancel();
-        this.buttonsDomPromise = CoreDom.waitToBeInDOM(this.toolbar?.nativeElement);
+        this.buttonsDomPromise = CoreDom.waitToBeInDOM(toolbar?.nativeElement);
         await this.buttonsDomPromise;
 
-        const width = this.toolbar?.nativeElement.getBoundingClientRect().width;
+        const width = toolbar?.nativeElement.getBoundingClientRect().width;
 
         if (length > 0 && width > length * this.toolbarButtonWidth) {
             this.swiperOpts.slidesPerView = length;
@@ -562,7 +564,7 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
 
         if (text) {
             this.focusRTE(event); // Make sure the editor is focused.
-            // eslint-disable-next-line deprecation/deprecation
+            // eslint-disable-next-line @typescript-eslint/no-deprecated
             document.execCommand('insertText', false, text);
         }
     }
@@ -570,7 +572,8 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
     /**
      * Window resized callback.
      */
-    async onResize(): Promise<void> {
+    protected async onWindowResize(): Promise<void> {
+        await CoreWait.waitForResizeDone();
         this.isPhone = CoreScreen.isMobile;
 
         this.updateToolbarButtons();
@@ -598,6 +601,7 @@ export class CoreEditorClassicEditorComponent extends CoreEditorBaseComponent im
     ngOnDestroy(): void {
         document.removeEventListener('selectionchange', this.selectionChangeFunction);
 
+        this.resizeListener?.off();
         this.contentObserver?.disconnect();
 
         this.domPromise?.cancel();

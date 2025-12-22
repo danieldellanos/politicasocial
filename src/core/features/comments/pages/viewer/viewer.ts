@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnDestroy, OnInit, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, AfterViewInit, effect, inject, viewChild } from '@angular/core';
 import { CoreEventObserver, CoreEvents } from '@singletons/events';
 import { ActivatedRoute } from '@angular/router';
 import { CoreSites } from '@services/sites';
@@ -28,7 +28,7 @@ import {
 import { IonContent } from '@ionic/angular';
 import { ContextLevel, CoreConstants } from '@/core/constants';
 import { CoreNavigator } from '@services/navigator';
-import { NgZone, Translate } from '@singletons';
+import { Translate } from '@singletons';
 import { CorePromiseUtils } from '@singletons/promise-utils';
 import { CoreUser } from '@features/user/services/user';
 import { CoreText } from '@singletons/text';
@@ -38,8 +38,6 @@ import { CoreCommentsDBRecord } from '@features/comments/services/database/comme
 import { CoreTime } from '@singletons/time';
 import { CoreNetwork } from '@services/network';
 import { dayjs } from '@/core/utils/dayjs';
-import { Subscription } from 'rxjs';
-import { CoreAnimations } from '@components/animations';
 import { CoreToasts, ToastDuration } from '@services/overlays/toasts';
 import { CoreLoadings } from '@services/overlays/loadings';
 import { CORE_COMMENTS_AUTO_SYNCED } from '@features/comments/constants';
@@ -49,6 +47,7 @@ import { CoreDom } from '@singletons/dom';
 import { CoreSharedModule } from '@/core/shared.module';
 import { ADDON_MOD_ASSIGN_COMMENTS_COMPONENT_NAME } from '@addons/mod/assign/submission/comments/constants';
 import { CoreCourses } from '@features/courses/services/courses';
+import { CoreKeyboard } from '@singletons/keyboard';
 
 /**
  * Page that displays comments.
@@ -56,16 +55,14 @@ import { CoreCourses } from '@features/courses/services/courses';
 @Component({
     selector: 'page-core-comments-viewer',
     templateUrl: 'viewer.html',
-    animations: [CoreAnimations.SLIDE_IN_OUT],
     styleUrls: ['../../../../../theme/components/discussion.scss', 'viewer.scss'],
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
 })
 export default class CoreCommentsViewerPage implements OnInit, OnDestroy, AfterViewInit {
 
-    @ViewChild(IonContent) content?: IonContent;
+    readonly content = viewChild.required(IonContent);
 
     comments: CoreCommentsDataToDisplay[] = [];
     commentsLoaded = false;
@@ -89,19 +86,16 @@ export default class CoreCommentsViewerPage implements OnInit, OnDestroy, AfterV
     currentUserId: number;
     sending = false;
     newComment = '';
-    isOnline: boolean;
+    readonly isOnline = CoreNetwork.onlineSignal;
 
     protected addDeleteCommentsAvailable = false;
     protected syncObserver?: CoreEventObserver;
-    protected onlineObserver: Subscription;
-    protected keyboardObserver: CoreEventObserver;
     protected viewDestroyed = false;
     protected scrollBottom = true;
     protected scrollElement?: HTMLElement;
+    protected route = inject(ActivatedRoute);
 
-    constructor(
-        protected route: ActivatedRoute,
-    ) {
+    constructor() {
         this.currentUserId = CoreSites.getCurrentSiteUserId();
 
         // Refresh data if comments are synchronized automatically.
@@ -122,17 +116,11 @@ export default class CoreCommentsViewerPage implements OnInit, OnDestroy, AfterV
             }
         }, CoreSites.getCurrentSiteId());
 
-        this.isOnline = CoreNetwork.isOnline();
-        this.onlineObserver = CoreNetwork.onChange().subscribe(() => {
-            // Execute the callback in the Angular zone, so change detection doesn't stop working.
-            NgZone.run(() => {
-                this.isOnline = CoreNetwork.isOnline();
-            });
-        });
+        effect(() => {
+            const shown = CoreKeyboard.keyboardShownSignal();
 
-        this.keyboardObserver = CoreEvents.on(CoreEvents.KEYBOARD_CHANGE, (keyboardHeight: number) => {
-            // Force when opening.
-            this.scrollToBottom(keyboardHeight > 0);
+            /// Force when opening.
+            this.scrollToBottom(shown);
         });
     }
 
@@ -169,7 +157,7 @@ export default class CoreCommentsViewerPage implements OnInit, OnDestroy, AfterV
      * @inheritdoc
      */
     async ngAfterViewInit(): Promise<void> {
-        this.scrollElement = await this.content?.getScrollElement();
+        this.scrollElement = await this.content().getScrollElement();
     }
 
     /**
@@ -661,8 +649,9 @@ export default class CoreCommentsViewerPage implements OnInit, OnDestroy, AfterV
         // Leave time for the view to be rendered.
         await CoreWait.nextTicks(5);
 
-        if (!this.viewDestroyed && this.content) {
-            this.content.scrollToBottom(0);
+        const content = this.content();
+        if (!this.viewDestroyed && content) {
+            content.scrollToBottom(0);
         }
     }
 
@@ -700,9 +689,7 @@ export default class CoreCommentsViewerPage implements OnInit, OnDestroy, AfterV
      */
     ngOnDestroy(): void {
         this.syncObserver?.off();
-        this.onlineObserver.unsubscribe();
         this.viewDestroyed = true;
-        this.keyboardObserver.off();
     }
 
 }

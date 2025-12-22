@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, viewChild } from '@angular/core';
 import { CoreCourseModuleMainActivityPage } from '@features/course/classes/main-activity-page';
 import { CoreNavigator } from '@services/navigator';
 import { AddonModLessonIndexComponent } from '../../components/index/index';
@@ -24,7 +24,6 @@ import { CoreSharedModule } from '@/core/shared.module';
 @Component({
     selector: 'page-addon-mod-lesson-index',
     templateUrl: 'index.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
         AddonModLessonIndexComponent,
@@ -33,7 +32,7 @@ import { CoreSharedModule } from '@/core/shared.module';
 export default class AddonModLessonIndexPage extends CoreCourseModuleMainActivityPage<AddonModLessonIndexComponent>
     implements OnInit {
 
-    @ViewChild(AddonModLessonIndexComponent) activityComponent?: AddonModLessonIndexComponent;
+    readonly activityComponent = viewChild.required(AddonModLessonIndexComponent);
 
     group?: number; // The group to display.
     action?: string; // The "action" to display first.

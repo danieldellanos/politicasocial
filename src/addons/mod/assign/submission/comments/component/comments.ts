@@ -14,7 +14,7 @@
 
 import { ContextLevel } from '@/core/constants';
 import { AddonModAssignSubmissionPluginBaseComponent } from '@addons/mod/assign/classes/base-submission-plugin-component';
-import { Component, ViewChild } from '@angular/core';
+import { Component, viewChild } from '@angular/core';
 import { CoreCommentsCommentsComponent } from '@features/comments/components/comments/comments';
 import { CoreComments } from '@features/comments/services/comments';
 import { CoreSharedModule } from '@/core/shared.module';
@@ -26,7 +26,6 @@ import { ADDON_MOD_ASSIGN_COMMENTS_AREA, ADDON_MOD_ASSIGN_COMMENTS_COMPONENT_NAM
 @Component({
     selector: 'addon-mod-assign-submission-comments',
     templateUrl: 'addon-mod-assign-submission-comments.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreCommentsCommentsComponent,
@@ -34,7 +33,7 @@ import { ADDON_MOD_ASSIGN_COMMENTS_AREA, ADDON_MOD_ASSIGN_COMMENTS_COMPONENT_NAM
 })
 export class AddonModAssignSubmissionCommentsComponent extends AddonModAssignSubmissionPluginBaseComponent {
 
-    @ViewChild(CoreCommentsCommentsComponent) commentsComponent!: CoreCommentsCommentsComponent;
+    readonly commentsComponent = viewChild(CoreCommentsCommentsComponent);
 
     commentsEnabled: boolean;
 
@@ -63,7 +62,7 @@ export class AddonModAssignSubmissionCommentsComponent extends AddonModAssignSub
      * Show the comments.
      */
     showComments(e?: Event): void {
-        this.commentsComponent?.openComments(e);
+        this.commentsComponent()?.openComments(e);
     }
 
 }

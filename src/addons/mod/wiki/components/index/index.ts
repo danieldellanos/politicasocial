@@ -12,24 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, Optional, Input, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy } from '@angular/core';
 import { Params } from '@angular/router';
 import { CoreError } from '@classes/errors/error';
 import { CoreCourseModuleMainActivityComponent } from '@features/course/classes/main-activity-component';
-import CoreCourseContentsPage from '@features/course/pages/contents/contents';
 import { CoreCourse } from '@features/course/services/course';
 import { CoreTag, CoreTagItem } from '@features/tag/services/tag';
 import { CoreUser } from '@features/user/services/user';
-import { IonContent } from '@ionic/angular';
 import { CoreNetwork } from '@services/network';
 import { CoreGroup, CoreGroups } from '@services/groups';
 import { CoreNavigator } from '@services/navigator';
 import { CoreSites } from '@services/sites';
 import { CorePromiseUtils } from '@singletons/promise-utils';
-import { Translate, NgZone } from '@singletons';
+import { Translate } from '@singletons';
 import { CoreEventObserver, CoreEvents } from '@singletons/events';
 import { CorePath } from '@singletons/path';
-import { Subscription } from 'rxjs';
 import { Md5 } from 'ts-md5';
 import { AddonModWikiPageDBRecord } from '../../services/database/wiki';
 import {
@@ -73,7 +70,6 @@ import { CoreCourseModuleInfoComponent } from '@features/course/components/modul
     selector: 'addon-mod-wiki-index',
     templateUrl: 'addon-mod-wiki-index.html',
     styleUrl: 'index.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreTagListComponent,
@@ -95,7 +91,7 @@ export class AddonModWikiIndexComponent extends CoreCourseModuleMainActivityComp
     pluginName = 'wiki';
     groupWiki = false;
 
-    isOnline = false;
+    readonly isOnline = CoreNetwork.onlineSignal;
 
     wiki?: AddonModWikiWiki; // The wiki instance.
     isMainPage = false; // Whether the user is viewing wiki's main page (just entered the wiki).
@@ -126,24 +122,6 @@ export class AddonModWikiIndexComponent extends CoreCourseModuleMainActivityComp
     protected ignoreManualSyncEvent = false; // Whether manual sync event should be ignored.
     protected currentUserId?: number; // Current user ID.
     protected currentPath!: string;
-    protected onlineSubscription: Subscription; // It will observe the status of the network connection.
-
-    constructor(
-        protected content?: IonContent,
-        @Optional() courseContentsPage?: CoreCourseContentsPage,
-    ) {
-        super('AddonModLessonIndexComponent', content, courseContentsPage);
-
-        this.isOnline = CoreNetwork.isOnline();
-
-        // Refresh online status when changes.
-        this.onlineSubscription = CoreNetwork.onChange().subscribe(() => {
-            // Execute the callback in the Angular zone, so change detection doesn't stop working.
-            NgZone.run(() => {
-                this.isOnline = CoreNetwork.isOnline();
-            });
-        });
-    }
 
     /**
      * @inheritdoc
@@ -853,6 +831,11 @@ export class AddonModWikiIndexComponent extends CoreCourseModuleMainActivityComp
             return;
         }
 
+        if (editedPageData.wikiId && this.wiki && editedPageData.wikiId !== this.wiki.id) {
+            // Different wiki, ignore.
+            return;
+        }
+
         // User has just edited a page. Check if it's the current page.
         if (this.pageId && editedPageData.pageId === this.pageId) {
             this.showLoadingAndRefresh(true, false);
@@ -875,7 +858,7 @@ export class AddonModWikiIndexComponent extends CoreCourseModuleMainActivityComp
             pageId: editedPageData.pageId,
             pageTitle: editedPageData.pageTitle,
             subwikiId: editedPageData.subwikiId,
-            userId: editedPageData.wikiId,
+            userId: editedPageData.userId,
             groupId: editedPageData.groupId,
         });
 
@@ -974,7 +957,6 @@ export class AddonModWikiIndexComponent extends CoreCourseModuleMainActivityComp
         this.manualSyncObserver?.off();
         this.newPageObserver?.off();
         this.pageCreatedOfflineObserver?.off();
-        this.onlineSubscription.unsubscribe();
         if (this.wiki) {
             AddonModWiki.wikiPageClosed(this.wiki.id, this.currentPath);
         }

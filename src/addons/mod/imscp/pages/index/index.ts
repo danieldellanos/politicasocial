@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, ViewChild } from '@angular/core';
+import { Component, viewChild } from '@angular/core';
 import { CoreCourseModuleMainActivityPage } from '@features/course/classes/main-activity-page';
 import { AddonModImscpIndexComponent } from '../../components/index/index';
 import { CoreSharedModule } from '@/core/shared.module';
@@ -23,7 +23,6 @@ import { CoreSharedModule } from '@/core/shared.module';
 @Component({
     selector: 'page-addon-mod-imscp-index',
     templateUrl: 'index.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
         AddonModImscpIndexComponent,
@@ -31,6 +30,6 @@ import { CoreSharedModule } from '@/core/shared.module';
 })
 export default class AddonModImscpIndexPage extends CoreCourseModuleMainActivityPage<AddonModImscpIndexComponent> {
 
-    @ViewChild(AddonModImscpIndexComponent) activityComponent?: AddonModImscpIndexComponent;
+    readonly activityComponent = viewChild.required(AddonModImscpIndexComponent);
 
 }

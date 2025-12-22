@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, ElementRef, inject, viewChild } from '@angular/core';
 import { FormControl } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { CoreError } from '@classes/errors/error';
@@ -50,7 +50,6 @@ import { CoreSharedModule } from '@/core/shared.module';
 @Component({
     selector: 'page-addon-mod-glossary-edit',
     templateUrl: 'edit.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreEditorRichTextEditorComponent,
@@ -58,7 +57,7 @@ import { CoreSharedModule } from '@/core/shared.module';
 })
 export default class AddonModGlossaryEditPage implements OnInit, CanLeave {
 
-    @ViewChild('editFormEl') formElement?: ElementRef;
+    readonly formElement = viewChild<ElementRef>('editFormEl');
 
     component = ADDON_MOD_GLOSSARY_COMPONENT_LEGACY;
     cmId!: number;
@@ -89,8 +88,7 @@ export default class AddonModGlossaryEditPage implements OnInit, CanLeave {
     protected syncObserver?: CoreEventObserver;
     protected isDestroyed = false;
     protected saved = false;
-
-    constructor(protected route: ActivatedRoute) {}
+    protected route = inject(ActivatedRoute);
 
     /**
      * @inheritdoc
@@ -204,7 +202,7 @@ export default class AddonModGlossaryEditPage implements OnInit, CanLeave {
         // Delete the local files from the tmp folder.
         CoreFileUploader.clearTmpFiles(this.data.attachments);
 
-        CoreForms.triggerFormCancelledEvent(this.formElement, CoreSites.getCurrentSiteId());
+        CoreForms.triggerFormCancelledEvent(this.formElement(), CoreSites.getCurrentSiteId());
 
         return true;
     }
@@ -230,7 +228,7 @@ export default class AddonModGlossaryEditPage implements OnInit, CanLeave {
 
             this.saved = true;
 
-            CoreForms.triggerFormSubmittedEvent(this.formElement, savedOnline, CoreSites.getCurrentSiteId());
+            CoreForms.triggerFormSubmittedEvent(this.formElement(), savedOnline, CoreSites.getCurrentSiteId());
 
             CoreNavigator.back();
         } catch (error) {

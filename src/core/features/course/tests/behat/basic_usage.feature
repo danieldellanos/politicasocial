@@ -102,8 +102,8 @@ Feature: Test basic usage of one course in app
     And I should not find "Web links" in the app
     And I should not find "Test glossary" in the app
 
-    When I set "page-core-course-index .core-course-thumb" styles to "background" "lightblue"
-    And I set "page-core-course-index .core-course-thumb img" styles to "display" "none"
+    When I set "page-core-course-index core-course-image" styles to "background" "lightblue"
+    And I set "page-core-course-index core-course-image" styles to "--core-image-visibility" "hidden"
     Then the UI should match the snapshot
 
     # Test infinite scroll on course
@@ -420,7 +420,6 @@ Feature: Test basic usage of one course in app
     Given the following "blocks" exist:
       | blockname        | contextlevel | reference | pagetypepattern | defaultregion | configdata                                                                                                   |
       | html             | Course       | C1        | course-view-*   | side-pre      | Tzo4OiJzdGRDbGFzcyI6Mjp7czo1OiJ0aXRsZSI7czoxNToiSFRNTCB0aXRsZSB0ZXN0IjtzOjQ6InRleHQiO3M6OToiYm9keSB0ZXN0Ijt9 |
-      | activity_modules | Course       | C1        | course-view-*   | side-pre      |                                                                                                              |
     And I entered the course "Course 1" as "student1" in the app
     Then the header should be "Course 1" in the app
     And I should find "Test forum name" in the app
@@ -438,4 +437,3 @@ Feature: Test basic usage of one course in app
     Then I press "Open block drawer" in the app
     And I should find "HTML title test" in the app
     And I should find "body test" in the app
-    And I should find "Activities" in the app

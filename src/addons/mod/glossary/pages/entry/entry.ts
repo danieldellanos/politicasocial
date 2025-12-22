@@ -14,7 +14,7 @@
 
 import { AddonModGlossaryHelper } from '@addons/mod/glossary/services/glossary-helper';
 import { AddonModGlossaryOffline, AddonModGlossaryOfflineEntry } from '@addons/mod/glossary/services/glossary-offline';
-import { Component, OnDestroy, OnInit, Optional, ViewChild } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, viewChild } from '@angular/core';
 import { ActivatedRoute, ActivatedRouteSnapshot } from '@angular/router';
 import { CoreRoutedItemsManagerSourcesTracker } from '@classes/items-management/routed-items-manager-sources-tracker';
 import { CoreSwipeNavigationItemsManager } from '@classes/items-management/swipe-navigation-items-manager';
@@ -57,7 +57,6 @@ import { CoreRatingAggregateComponent } from '@features/rating/components/aggreg
 @Component({
     selector: 'page-addon-mod-glossary-entry',
     templateUrl: 'entry.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreTagListComponent,
@@ -68,7 +67,7 @@ import { CoreRatingAggregateComponent } from '@features/rating/components/aggreg
 })
 export default class AddonModGlossaryEntryPage implements OnInit, OnDestroy {
 
-    @ViewChild(CoreCommentsCommentsComponent) comments?: CoreCommentsCommentsComponent;
+    readonly comments = viewChild(CoreCommentsCommentsComponent);
 
     component = ADDON_MOD_GLOSSARY_COMPONENT_LEGACY;
     componentId?: number;
@@ -91,12 +90,11 @@ export default class AddonModGlossaryEntryPage implements OnInit, OnDestroy {
 
     protected entrySlug!: string;
     protected logView: () => void;
+    protected splitView = inject(CoreSplitViewComponent, { optional: true });
+    protected route = inject(ActivatedRoute);
+    protected courseContentsPage = inject(CoreCourseContentsPage, { optional: true });
 
-    constructor(
-        @Optional() protected splitView: CoreSplitViewComponent,
-        protected route: ActivatedRoute,
-        @Optional() protected courseContentsPage?: CoreCourseContentsPage,
-    ) {
+    constructor() {
         this.logView = CoreTime.once(async () => {
             if (!this.onlineEntry || !this.glossary || !this.componentId) {
                 return;
@@ -253,9 +251,10 @@ export default class AddonModGlossaryEntryPage implements OnInit, OnDestroy {
      * @returns Promise resolved when done.
      */
     async doRefresh(refresher?: HTMLIonRefresherElement): Promise<void> {
-        if (this.onlineEntry && this.glossary?.allowcomments && this.onlineEntry.id > 0 && this.commentsEnabled && this.comments) {
+        const comments = this.comments();
+        if (this.onlineEntry && this.glossary?.allowcomments && this.onlineEntry.id > 0 && this.commentsEnabled && comments) {
             // Refresh comments asynchronously (without blocking the current promise).
-            CorePromiseUtils.ignoreErrors(this.comments.doRefresh());
+            CorePromiseUtils.ignoreErrors(comments.doRefresh());
         }
 
         try {
@@ -277,9 +276,10 @@ export default class AddonModGlossaryEntryPage implements OnInit, OnDestroy {
      */
     protected async loadOnlineEntry(entryId: number): Promise<void> {
         try {
+            const isOnline = CoreNetwork.isOnline();
             const result = await AddonModGlossary.getEntry(entryId);
-            const canDeleteEntries = CoreNetwork.isOnline() && await AddonModGlossary.canDeleteEntries();
-            const canUpdateEntries = CoreNetwork.isOnline() && await AddonModGlossary.canUpdateEntries();
+            const canDeleteEntries = isOnline && await AddonModGlossary.canDeleteEntries();
+            const canUpdateEntries = isOnline && await AddonModGlossary.canUpdateEntries();
 
             this.onlineEntry = result.entry;
             this.ratingInfo = result.ratinginfo;
@@ -405,7 +405,7 @@ class AddonModGlossaryEntryEntriesSwipeManager
     protected getSelectedItemPathFromRoute(route: ActivatedRouteSnapshot | ActivatedRoute): string | null {
         const params = CoreNavigator.getRouteParams(route);
 
-        return `${this.getSource().GLOSSARY_PATH_PREFIX}entry/${params.entrySlug}`;
+        return `${this.getSource().glossaryPathPrefix}entry/${params.entrySlug}`;
     }
 
 }

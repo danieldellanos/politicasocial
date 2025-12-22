@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, ViewChild, ElementRef, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, inject, viewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { CoreLoginHelper } from '@features/login/services/login-helper';
 import { Translate } from '@singletons';
@@ -27,6 +27,7 @@ import { CoreLoadings } from '@services/overlays/loadings';
 import { CoreAlerts } from '@services/overlays/alerts';
 import { CoreSharedModule } from '@/core/shared.module';
 import { CoreLoginExceededAttemptsComponent } from '../../components/exceeded-attempts/exceeded-attempts';
+import { CoreError } from '@classes/errors/error';
 
 /**
  * Page to recover a forgotten password.
@@ -34,7 +35,6 @@ import { CoreLoginExceededAttemptsComponent } from '../../components/exceeded-at
 @Component({
     selector: 'page-core-login-forgotten-password',
     templateUrl: 'forgotten-password.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreLoginExceededAttemptsComponent,
@@ -42,7 +42,7 @@ import { CoreLoginExceededAttemptsComponent } from '../../components/exceeded-at
 })
 export default class CoreLoginForgottenPasswordPage implements OnInit {
 
-    @ViewChild('resetPasswordForm') formElement?: ElementRef;
+    readonly formElement = viewChild<ElementRef>('resetPasswordForm');
 
     myForm!: FormGroup;
     site!: CoreUnauthenticatedSite;
@@ -51,7 +51,7 @@ export default class CoreLoginForgottenPasswordPage implements OnInit {
     canContactSupport?: boolean;
     wasPasswordResetRequestedRecently = false;
 
-    constructor(protected formBuilder: FormBuilder) {}
+    protected formBuilder = inject(FormBuilder);
 
     /**
      * Initialize the component.
@@ -119,14 +119,20 @@ export default class CoreLoginForgottenPasswordPage implements OnInit {
                 CoreAlerts.showError(response.notice);
             } else {
                 // Success.
-                CoreForms.triggerFormSubmittedEvent(this.formElement, true);
+                CoreForms.triggerFormSubmittedEvent(this.formElement(), true);
 
                 await CoreAlerts.show({ header: Translate.instant('core.success'), message: response.notice });
                 await CoreNavigator.back();
                 await CoreLoginHelper.passwordResetRequested(this.site.getURL());
             }
         } catch (error) {
-            CoreAlerts.showError(error);
+            if (error.errorcode === 'invalidparameter') {
+                CoreAlerts.showError(new CoreError(
+                    Translate.instant(isMail ? 'core.login.invalidemail' : 'core.invalidusername'),
+                ));
+            } else {
+                CoreAlerts.showError(error);
+            }
         } finally {
             modal.dismiss();
         }

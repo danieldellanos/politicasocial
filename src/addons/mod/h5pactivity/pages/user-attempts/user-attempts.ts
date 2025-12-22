@@ -43,7 +43,6 @@ import { AddonModH5PActivityAttemptSummaryComponent } from '../../components/att
     selector: 'page-addon-mod-h5pactivity-user-attempts',
     templateUrl: 'user-attempts.html',
     styleUrl: 'user-attempts.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
         AddonModH5PActivityAttemptCompletionComponent,
@@ -60,7 +59,7 @@ export default class AddonModH5PActivityUserAttemptsPage implements OnInit {
     attemptsData?: AddonModH5PActivityUserAttempts;
     user?: CoreUserProfile;
     isCurrentUser = false;
-    isTablet: Signal<boolean>;
+    readonly isTablet: Signal<boolean>;
     allAttemptsTitle = Translate.instant('addon.mod_h5pactivity.all_attempts');
     expandedAttemptId = '';
 

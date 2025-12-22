@@ -12,15 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {
-    Component,
-    Input,
-    OnInit,
-    OnDestroy,
-    ElementRef,
-    ViewContainerRef,
-    ViewChild,
-} from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, ElementRef, ViewContainerRef, inject, viewChild } from '@angular/core';
 import { CoreLogger } from '@singletons/logger';
 import { CoreContextMenuComponent } from '../context-menu/context-menu';
 import { CoreDirectivesRegistry } from '@singletons/directives-registry';
@@ -44,7 +36,7 @@ const BUTTON_HIDDEN_CLASS = 'core-navbar-button-hidden';
  * Example usage:
  *
  * <core-navbar-buttons slot="end">
- *     <ion-button [class.hidden]="!buttonShown" [ariaLabel]="Do something" (click)="action()">
+ *     <ion-button fill="clear" [class.hidden]="!buttonShown" [ariaLabel]="Do something" (click)="action()">
  *         <ion-icon name="funnel" slot="icon-only" aria-hidden="true"></ion-icon>
  *     </ion-button>
  * </core-navbar-buttons>
@@ -53,11 +45,10 @@ const BUTTON_HIDDEN_CLASS = 'core-navbar-button-hidden';
     selector: 'core-navbar-buttons',
     template: '<ng-content/><template #contextMenuContainer>-</template>',
     styleUrl: 'navbar-buttons.scss',
-    standalone: true,
 })
 export class CoreNavBarButtonsComponent implements OnInit, OnDestroy {
 
-    @ViewChild('contextMenuContainer', { read: ViewContainerRef }) container!: ViewContainerRef;
+    readonly container = viewChild.required('contextMenuContainer', { read: ViewContainerRef });
 
     // If the hidden input is true, hide all buttons.
     // eslint-disable-next-line @angular-eslint/no-input-rename
@@ -69,7 +60,7 @@ export class CoreNavBarButtonsComponent implements OnInit, OnDestroy {
         this.showHideAllElements();
     }
 
-    protected element: HTMLElement;
+    protected element: HTMLElement = inject(ElementRef).nativeElement;
     protected allButtonsHidden = false;
     protected forceHidden = false;
     protected logger: CoreLogger;
@@ -77,8 +68,7 @@ export class CoreNavBarButtonsComponent implements OnInit, OnDestroy {
     protected mergedContextMenu?: CoreContextMenuComponent;
     protected createdMainContextMenuElement?: HTMLElement;
 
-    constructor(element: ElementRef) {
-        this.element = element.nativeElement;
+    constructor() {
         this.logger = CoreLogger.getInstance('CoreNavBarButtonsComponent');
 
         CoreDirectivesRegistry.register(this.element, this);
@@ -185,7 +175,7 @@ export class CoreNavBarButtonsComponent implements OnInit, OnDestroy {
      * @returns Created component.
      */
     protected createMainContextMenu(): CoreContextMenuComponent {
-        const componentRef = this.container.createComponent(CoreContextMenuComponent);
+        const componentRef = this.container().createComponent(CoreContextMenuComponent);
 
         this.createdMainContextMenuElement = componentRef.location.nativeElement;
 

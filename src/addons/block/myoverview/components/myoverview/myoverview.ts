@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit, OnDestroy, Optional, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, OnInit, OnDestroy, OnChanges, SimpleChanges, inject } from '@angular/core';
 import { CoreEventObserver, CoreEvents } from '@singletons/events';
 import { CoreTime } from '@singletons/time';
 import { CoreSites, CoreSitesReadingStrategy } from '@services/sites';
@@ -55,7 +55,6 @@ const FILTER_PRIORITY: AddonBlockMyOverviewTimeFilters[] =
     selector: 'addon-block-myoverview',
     templateUrl: 'addon-block-myoverview.html',
     styleUrl: 'myoverview.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreCoursesCourseListItemComponent,
@@ -117,9 +116,10 @@ export class AddonBlockMyOverviewComponent extends CoreBlockBaseComponent implem
     protected firstLoadWatcher?: PageLoadWatcher;
     protected loadsManager: PageLoadsManager;
 
-    constructor(@Optional() loadsManager?: PageLoadsManager) {
-        super('AddonBlockMyOverviewComponent');
+    constructor() {
+        super();
 
+        const loadsManager = inject(PageLoadsManager, { optional: true });
         this.loadsManager = loadsManager ?? new PageLoadsManager();
     }
 
@@ -623,7 +623,7 @@ export class AddonBlockMyOverviewComponent extends CoreBlockBaseComponent implem
             }
         }
 
-        this.sortCourses(this.sort.selected);
+        this.sortCourses(false);
 
         // Refresh prefetch data (if enabled).
         this.prefetchIconsInitialized = false;
@@ -648,15 +648,15 @@ export class AddonBlockMyOverviewComponent extends CoreBlockBaseComponent implem
     /**
      * Sort courses
      *
-     * @param sort Sort by value.
+     * @param saveSort Whether to save the sort option.
      */
-    sortCourses(sort: string): void {
+    sortCourses(saveSort = true): void {
         if (!this.sort.enabled) {
             return;
         }
 
-        if (this.sort.selected != sort) {
-            this.saveSort(sort);
+        if (saveSort) {
+            this.saveSort(this.sort.selected);
         }
 
         if (this.sort.selected == 'lastaccess') {
@@ -714,21 +714,10 @@ export class AddonBlockMyOverviewComponent extends CoreBlockBaseComponent implem
     }
 
     /**
-     * Option selected save and apply filter.
-     *
-     * @param selected Option selected.
-     * @returns Promise resolved when done.
-     */
-    async filterOptionsChanged(selected: string): Promise<void> {
-        this.filters.timeFilterSelected = selected;
-        this.filterCourses();
-    }
-
-    /**
      * Go to search courses.
      */
     async openSearch(): Promise<void> {
-        CoreNavigator.navigateToSitePath('courses/list', { params : { mode: 'search' } });
+        CoreNavigator.navigateToSitePath('courses/list', { params : { mode: 'search', searchText: this.textFilter.trim() } });
     }
 
     /**

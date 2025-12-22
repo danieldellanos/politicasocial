@@ -26,6 +26,8 @@ import { map } from 'rxjs/operators';
 import { CoreSiteWSPreSets, WSObservable } from '@classes/sites/authenticated-site';
 import { firstValueFrom } from 'rxjs';
 import { CoreCacheUpdateFrequency } from '@/core/constants';
+import { CoreCourseCompletion } from '@features/course/services/course-completion';
+import { AddonCourseCompletionAggregation, AddonCourseCompletionCriteriaType } from '../constants';
 
 /**
  * Service to handle course completion.
@@ -42,11 +44,10 @@ export class AddonCourseCompletionProvider {
      *
      * @param site Site. If not defined, use current site.
      * @returns True if available.
+     * @deprecated since 5.1. Use CoreCourseCompletion.isCompletionEnabledInSite instead.
      */
     isCompletionEnabledInSite(site?: CoreSite): boolean {
-        site = site || CoreSites.getCurrentSite();
-
-        return !!site && site.canUseAdvancedFeature('enablecompletion');
+        return CoreCourseCompletion.isCompletionEnabledInSite(site);
     }
 
     /**
@@ -55,24 +56,10 @@ export class AddonCourseCompletionProvider {
      * @param course Course.
      * @param site Site. If not defined, use current site.
      * @returns True if available.
+     * @deprecated since 5.1. Use CoreCourseCompletion.isCompletionEnabledInCourse instead.
      */
     isCompletionEnabledInCourse(course: CoreCourseAnyCourseData, site?: CoreSite): boolean {
-        if (!this.isCompletionEnabledInSite(site)) {
-            return false;
-        }
-
-        return this.isCompletionEnabledInCourseObject(course);
-    }
-
-    /**
-     * Check whether completion is enabled in a certain course object.
-     *
-     * @param course Course object.
-     * @returns True if completion is enabled, false otherwise.
-     */
-    protected isCompletionEnabledInCourseObject(course: CoreCourseAnyCourseData): boolean {
-        // Undefined means it's not supported, so it's enabled by default.
-        return course.enablecompletion !== false;
+        return CoreCourseCompletion.isCompletionEnabledInCourse(course, site);
     }
 
     /**
@@ -84,7 +71,7 @@ export class AddonCourseCompletionProvider {
      * @returns True if user can mark course as self completed, false otherwise.
      */
     canMarkSelfCompleted(userId: number, completion: AddonCourseCompletionCourseCompletionStatus): boolean {
-        if (CoreSites.getCurrentSiteUserId() != userId) {
+        if (CoreSites.getCurrentSiteUserId() !== userId) {
             return false;
         }
 
@@ -92,7 +79,7 @@ export class AddonCourseCompletionProvider {
         let alreadyMarked = false;
 
         completion.completions.forEach((criteria) => {
-            if (criteria.type === 1) {
+            if (criteria.type === AddonCourseCompletionCriteriaType.SELF) {
                 // Self completion criteria found.
                 selfCompletionActive = true;
                 alreadyMarked = criteria.complete;
@@ -214,7 +201,7 @@ export class AddonCourseCompletionProvider {
      * @returns True if plugin enabled, false otherwise.
      */
     isPluginViewEnabled(): boolean {
-        return CoreSites.isLoggedIn() && this.isCompletionEnabledInSite();
+        return CoreSites.isLoggedIn() && CoreCourseCompletion.isCompletionEnabledInSite();
     }
 
     /**
@@ -225,7 +212,7 @@ export class AddonCourseCompletionProvider {
      * @returns Promise resolved with true if plugin is enabled, rejected or resolved with false otherwise.
      */
     async isPluginViewEnabledForCourse(courseId?: number, preferCache = true): Promise<boolean> {
-        if (!courseId || !this.isCompletionEnabledInSite()) {
+        if (!courseId || !CoreCourseCompletion.isCompletionEnabledInSite()) {
             return false;
         }
 
@@ -236,7 +223,7 @@ export class AddonCourseCompletionProvider {
         }
 
         // Check completion is enabled in the course and it has criteria, to view completion.
-        return this.isCompletionEnabledInCourseObject(course) && course.completionhascriteria !== false;
+        return CoreCourseCompletion.isCompletionEnabledInCourseObject(course) && course.completionhascriteria !== false;
     }
 
     /**
@@ -327,9 +314,9 @@ export const AddonCourseCompletion = makeSingleton(AddonCourseCompletionProvider
  */
 export type AddonCourseCompletionCourseCompletionStatus = {
     completed: boolean; // True if the course is complete, false otherwise.
-    aggregation: number; // Aggregation method 1 means all, 2 means any.
+    aggregation: AddonCourseCompletionAggregation; // Aggregation method 1 means all, 2 means any.
     completions: {
-        type: number; // Completion criteria type.
+        type: AddonCourseCompletionCriteriaType; // Completion criteria type.
         title: string; // Completion criteria Title.
         status: string; // Completion status (Yes/No) a % or number.
         complete: boolean; // Completion status (true/false).

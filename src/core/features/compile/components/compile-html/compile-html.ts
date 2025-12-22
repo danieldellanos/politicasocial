@@ -21,7 +21,6 @@ import {
     OnChanges,
     OnDestroy,
     ViewContainerRef,
-    ViewChild,
     ComponentRef,
     SimpleChange,
     ChangeDetectorRef,
@@ -38,6 +37,8 @@ import {
     EffectRef,
     EffectCleanupRegisterFn,
     CreateEffectOptions,
+    inject,
+    viewChild,
 } from '@angular/core';
 import { CorePromisedValue } from '@classes/promised-value';
 
@@ -68,7 +69,6 @@ import { CoreSharedModule } from '@/core/shared.module';
     selector: 'core-compile-html',
     template: '<core-loading [hideUntil]="loaded"><ng-container #dynamicComponent /></core-loading>',
     styles: [':host { display: contents; }'],
-    standalone: true,
     imports: [CoreSharedModule],
 })
 export class CoreCompileHtmlComponent implements OnChanges, OnDestroy, DoCheck {
@@ -88,22 +88,19 @@ export class CoreCompileHtmlComponent implements OnChanges, OnDestroy, DoCheck {
     componentInstance?: any; // eslint-disable-line @typescript-eslint/no-explicit-any
 
     // Get the container where to put the content.
-    @ViewChild('dynamicComponent', { read: ViewContainerRef }) container?: ViewContainerRef;
+    readonly container = viewChild('dynamicComponent', { read: ViewContainerRef });
 
     protected componentRef?: ComponentRef<unknown>;
-    protected element: HTMLElement;
+    protected element: HTMLElement = inject(ElementRef).nativeElement;
     protected differ: KeyValueDiffer<unknown, unknown>; // To detect changes in the jsData input.
     protected creatingComponent = false;
     protected pendingCalls = {};
     protected componentStyles = '';
+    protected changeDetector = inject(ChangeDetectorRef);
+    protected injector = inject(Injector);
 
-    constructor(
-        protected changeDetector: ChangeDetectorRef,
-        protected injector: Injector,
-        element: ElementRef,
-        differs: KeyValueDiffers,
-    ) {
-        this.element = element.nativeElement;
+    constructor() {
+        const differs = inject(KeyValueDiffers);
         this.differ = differs.find([]).create();
     }
 
@@ -149,13 +146,14 @@ export class CoreCompileHtmlComponent implements OnChanges, OnDestroy, DoCheck {
             this.componentRef?.destroy();
 
             // Create the component.
-            if (this.container) {
+            const container = this.container();
+            if (container) {
                 await this.loadCSSCode();
 
                 this.componentRef = await CoreCompile.createAndCompileComponent(
                     this.text,
                     componentClass,
-                    this.container,
+                    container,
                     this.extraImports,
                     this.componentStyles,
                 );

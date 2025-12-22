@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { OnInit, Component, HostBinding } from '@angular/core';
+import { OnInit, Component } from '@angular/core';
 import { CoreBlockBaseComponent } from '../../classes/base-block-component';
 import { ContextLevel } from '@/core/constants';
 import { CoreSharedModule } from '@/core/shared.module';
@@ -23,20 +23,18 @@ import { CoreSharedModule } from '@/core/shared.module';
 @Component({
     selector: 'core-block-pre-rendered',
     templateUrl: 'core-block-pre-rendered.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
+    host: {
+        '[attr.id]': 'id',
+    },
 })
 export class CoreBlockPreRenderedComponent extends CoreBlockBaseComponent implements OnInit {
 
     courseId?: number;
 
-    @HostBinding('attr.id') id?: string;
-
-    constructor() {
-        super('CoreBlockPreRenderedComponent');
-    }
+    protected id?: string;
 
     /**
      * @inheritdoc

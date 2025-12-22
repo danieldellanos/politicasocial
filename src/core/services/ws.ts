@@ -279,7 +279,7 @@ export class CoreWSProvider {
                 // Redirections should have been handled by the platform,
                 // but Android does not follow redirections between HTTP and HTTPS.
                 // See: https://developer.android.com/reference/java/net/HttpURLConnection#response-handling
-                redirectUrl = fileDownloaded.headers?.['location'];
+                redirectUrl = fileDownloaded.headers?.['location'] ?? fileDownloaded.headers?.['Location'];
                 maxRedirects--;
             } while (redirectUrl && maxRedirects >= 0);
 
@@ -292,7 +292,8 @@ export class CoreWSProvider {
                 if (!extension || ['gdoc', 'gsheet', 'gslides', 'gdraw', 'php'].includes(extension)) {
 
                     // Not valid, get the file's mimetype.
-                    const requestContentType = fileDownloaded.headers?.['Content-Type']?.split(';')[0];
+                    const contentType = fileDownloaded.headers?.['Content-Type'] || fileDownloaded.headers?.['content-type'];
+                    const requestContentType = contentType?.split(';')[0];
                     const mimetype = requestContentType ?? await this.getRemoteFileMimeType(url);
 
                     if (mimetype) {
@@ -359,6 +360,7 @@ export class CoreWSProvider {
         try {
             const response = await this.performHead(url);
 
+            // HttpHeaders get is already case insensitive, no need to check different values.
             let mimeType = response.headers.get('Content-Type');
             if (mimeType) {
                 // Remove "parameters" like charset.
@@ -367,7 +369,7 @@ export class CoreWSProvider {
             this.mimeTypeCache[url] = mimeType;
 
             return mimeType || '';
-        } catch (error) {
+        } catch {
             // Error, resolve with empty mimetype.
             return '';
         }
@@ -398,7 +400,7 @@ export class CoreWSProvider {
      * @returns Timeout in ms.
      */
     getRequestTimeout(): number {
-        return CoreNetwork.isNetworkAccessLimited() ? CoreConstants.WS_TIMEOUT : CoreConstants.WS_TIMEOUT_WIFI;
+        return CoreNetwork.isCellular() ? CoreConstants.WS_TIMEOUT : CoreConstants.WS_TIMEOUT_WIFI;
     }
 
     /**
@@ -1203,10 +1205,13 @@ export class CoreWSProvider {
                     // Error is a response object.
                     response = error as NativeHttpResponse;
 
+                    // For some errors, the response doesn't contain headers. Make sure it always exists, even if it's empty.
+                    response.headers = response.headers || {};
+
                     // Redirections should have been handled by the platform,
                     // but Android does not follow redirections between HTTP and HTTPS.
                     // See: https://developer.android.com/reference/java/net/HttpURLConnection#response-handling
-                    redirectUrl = response.headers['location'];
+                    redirectUrl = response.headers['location'] ?? response.headers['Location'];
                     maxRedirects--;
                     if (!redirectUrl || maxRedirects < 0) {
                         throw error;
@@ -1277,7 +1282,7 @@ export class CoreWSProvider {
             const result = await this.performHead(url);
 
             return result.status >= 200 && result.status < 300;
-        } catch (error) {
+        } catch {
             return false;
         }
     }

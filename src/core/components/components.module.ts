@@ -49,7 +49,6 @@ import { CoreSpacerComponent } from './spacer/spacer';
 import { CoreHorizontalScrollControlsComponent } from './horizontal-scroll-controls/horizontal-scroll-controls';
 import { CoreButtonWithSpinnerComponent } from './button-with-spinner/button-with-spinner';
 import { CoreSwipeSlidesComponent } from './swipe-slides/swipe-slides';
-import { CoreSwipeNavigationTourComponent } from './swipe-navigation-tour/swipe-navigation-tour';
 import { CoreMessageComponent } from './message/message';
 import { CoreGroupSelectorComponent } from './group-selector/group-selector';
 import { CoreSheetModalComponent } from '@components/sheet-modal/sheet-modal';
@@ -62,9 +61,9 @@ import { CoreSitesListComponent } from './sites-list/sites-list';
  * @returns Returns core deprecated components.
  */
 export async function getCoreDeprecatedComponents(): Promise<Type<unknown>[]> {
-    // eslint-disable-next-line deprecation/deprecation
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const { CoreStyleComponent } = await import('@components/style/style');
-    // eslint-disable-next-line deprecation/deprecation
+    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const { CoreShowPasswordComponent } = await import('@components/show-password/show-password');
 
     return [
@@ -113,7 +112,6 @@ export async function getCoreDeprecatedComponents(): Promise<Type<unknown>[]> {
         CoreComboboxComponent,
         CoreSpacerComponent,
         CoreHorizontalScrollControlsComponent,
-        CoreSwipeNavigationTourComponent,
         CoreSheetModalComponent,
         CoreSitesListComponent,
     ],
@@ -156,7 +154,6 @@ export async function getCoreDeprecatedComponents(): Promise<Type<unknown>[]> {
         CoreComboboxComponent,
         CoreSpacerComponent,
         CoreHorizontalScrollControlsComponent,
-        CoreSwipeNavigationTourComponent,
         CoreSheetModalComponent,
         CoreSitesListComponent,
     ],

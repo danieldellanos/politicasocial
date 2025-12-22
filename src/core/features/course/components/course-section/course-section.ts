@@ -13,7 +13,6 @@
 // limitations under the License.
 import {
     Component,
-    HostBinding,
     Input,
     OnInit,
 } from '@angular/core';
@@ -36,11 +35,13 @@ import { CoreCourseModuleComponent } from '../module/module';
     selector: 'core-course-section',
     templateUrl: 'course-section.html',
     styleUrl: 'course-section.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreCourseModuleComponent,
     ],
+    host: {
+        '[class]': 'collapsible ? "collapsible" : "non-collapsible"',
+    },
 })
 export class CoreCourseSectionComponent implements OnInit {
 
@@ -49,11 +50,6 @@ export class CoreCourseSectionComponent implements OnInit {
     @Input({ transform: toBoolean }) collapsible = true; // Whether the section can be collapsed.
     @Input() lastModuleViewed?: CoreCourseViewedModulesDBRecord;
     @Input() viewedModules: Record<number, boolean> = {};
-
-    @HostBinding('class')
-        get collapsibleClass(): string {
-            return this.collapsible ? 'collapsible' : 'non-collapsible';
-        }
 
     completionStatusIncomplete = CoreCourseModuleCompletionStatus.COMPLETION_INCOMPLETE;
     highlightedName?: string; // Name to highlight.

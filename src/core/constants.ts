@@ -20,13 +20,14 @@ import {
     ModResourceDisplay,
 } from '@addons/mod/constants';
 import { InjectionToken } from '@angular/core';
+import { CoreStorageTable } from '@services/storage';
 import { CoreBrowser } from '@singletons/browser';
 
 /**
  * Injection token used for dependencies marked as optional that will never
  * be resolved by Angular injectors.
  */
-export const NULL_INJECTION_TOKEN = new InjectionToken('null');
+export const NULL_INJECTION_TOKEN: InjectionToken<() => Promise<CoreStorageTable>> = new InjectionToken('null');
 
 /**
  * Context levels enumeration.
@@ -98,6 +99,7 @@ export const MOODLE_RELEASES = {
     '4.4': 2024042200,
     '4.5': 2024100700,
     '5.0': 2025041400,
+    '5.1': 2025100600,
 };
 
 /**
@@ -109,6 +111,18 @@ export const enum BackButtonPriority {
     CORE_TABS = 40,
     MAIN_MENU = -10, // Use a priority lower than 0 (navigation).
     QUIT_APP = -100, // This should always be the lowest priority.
+}
+
+/**
+ * LMS enum with the different badge styles.
+ */
+export const enum LMSBadgeStyle {
+    PRIMARY = 'primary',
+    SECONDARY = 'secondary',
+    SUCCESS = 'success',
+    DANGER = 'danger',
+    WARNING = 'warning',
+    INFO = 'info',
 }
 
 /**
@@ -155,14 +169,6 @@ export class CoreConstants {
     static readonly WS_TIMEOUT_WIFI = 30000; // Timeout when in WiFi.
 
     // Login constants.
-    /**
-     * @deprecated since 4.3 Use TypeOfLogin.BROWSER instead.
-     */
-    static readonly LOGIN_SSO_CODE = 2; // SSO in browser window is required.
-    /**
-     * @deprecated since 4.3 Use TypeOfLogin.EMBEDDED instead.
-     */
-    static readonly LOGIN_SSO_INAPP_CODE = 3; // SSO in embedded browser is required.
     static readonly LOGIN_LAUNCH_DATA = 'CoreLoginLaunchData';
 
     // Download status constants.

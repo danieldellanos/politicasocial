@@ -145,26 +145,6 @@ export class CoreLoginHelperProvider {
     }
 
     /**
-     * Open a browser to perform SSO login.
-     *
-     * @param siteUrl URL of the site where the SSO login will be performed.
-     * @param typeOfLogin TypeOfLogin.BROWSER or TypeOfLogin.EMBEDDED.
-     * @param service The service to use. If not defined, core service will be used.
-     * @param launchUrl The URL to open for SSO. If not defined, default tool mobile launch URL will be used.
-     * @param redirectData Data of the path/url to open once authenticated. If not defined, site initial page.
-     * @deprecated since 4.3. Use openBrowserForSSOLogin instead.
-     */
-    async confirmAndOpenBrowserForSSOLogin(
-        siteUrl: string,
-        typeOfLogin: TypeOfLogin,
-        service?: string,
-        launchUrl?: string,
-        redirectData?: CoreRedirectPayload,
-    ): Promise<void> {
-        this.openBrowserForSSOLogin(siteUrl, typeOfLogin, service, launchUrl, redirectData);
-    }
-
-    /**
      * Helper function to act when the forgotten password is clicked.
      *
      * @param siteUrl Site URL.
@@ -338,7 +318,7 @@ export class CoreLoginHelperProvider {
         if (!siteConfig) {
             return [];
         }
-        // eslint-disable-next-line deprecation/deprecation
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
         if (this.isFeatureDisabled(IDENTITY_PROVIDERS_FEATURE_NAME, siteConfig)) {
             // Identity providers are disabled, return an empty list.
             return [];
@@ -355,7 +335,7 @@ export class CoreLoginHelperProvider {
                 if (
                     provider.url &&
                     (provider.url.indexOf(httpsUrl) != -1 || provider.url.indexOf(httpUrl) != -1) &&
-                    !this.isFeatureDisabled( // eslint-disable-line deprecation/deprecation
+                    !this.isFeatureDisabled( // eslint-disable-line @typescript-eslint/no-deprecated
                         IDENTITY_PROVIDER_FEATURE_NAME_PREFIX + urlParams.id,
                         siteConfig,
                     )
@@ -491,7 +471,7 @@ export class CoreLoginHelperProvider {
      * @deprecated since 4.4. Please use isFeatureDisabled in a site instance.
      */
     isEmailSignupDisabled(config?: CoreSitePublicConfigResponse): boolean {
-        // eslint-disable-next-line deprecation/deprecation
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
         return this.isFeatureDisabled(EMAIL_SIGNUP_FEATURE_NAME, config);
     }
 
@@ -504,7 +484,7 @@ export class CoreLoginHelperProvider {
      * @deprecated since 4.4. Please use isFeatureDisabled in a site instance.
      */
     isFeatureDisabled(feature: string, config?: CoreSitePublicConfigResponse): boolean {
-       // eslint-disable-next-line deprecation/deprecation
+       // eslint-disable-next-line @typescript-eslint/no-deprecated
        const disabledFeatures = this.getDisabledFeatures(config);
 
         const regEx = new RegExp(`(,|^)${feature}(,|$)`, 'g');
@@ -531,7 +511,7 @@ export class CoreLoginHelperProvider {
      * @deprecated since 4.4. Please use isFeatureDisabled in a site instance.
      */
     isForgottenPasswordDisabled(config?: CoreSitePublicConfigResponse): boolean {
-        // eslint-disable-next-line deprecation/deprecation
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
         return this.isFeatureDisabled(FORGOTTEN_PASSWORD_FEATURE_NAME, config);
     }
 
@@ -843,11 +823,11 @@ export class CoreLoginHelperProvider {
         const params: Record<string, string> = {};
 
         if (username) {
-            params.username = username.trim();
+            params.username = username.trim().toLowerCase();
         }
 
         if (email) {
-            params.email = email.trim();
+            params.email = email.trim().toLowerCase();
         }
 
         return CoreWS.callAjax('core_auth_request_password_reset', params, { siteUrl });
@@ -923,17 +903,6 @@ export class CoreLoginHelperProvider {
         }
 
         return true;
-    }
-
-    /**
-     * Check if a confirm should be shown to open a SSO authentication.
-     *
-     * @param typeOfLogin TypeOfLogin.BROWSER or TypeOfLogin.EMBEDDED.
-     * @returns True if confirm modal should be shown, false otherwise.
-     * @deprecated since 4.3. Not used anymore. See shouldSkipCredentialsScreenOnSSO.
-     */
-    shouldShowSSOConfirm(typeOfLogin: TypeOfLogin): boolean {
-        return !this.isSSOEmbeddedBrowser(typeOfLogin) && !this.shouldSkipCredentialsScreenOnSSO();
     }
 
     /**
@@ -1068,7 +1037,7 @@ export class CoreLoginHelperProvider {
 
             // Call the WS to resend the confirmation email.
             const modal = await CoreLoadings.show('core.sending', true);
-            const data = { username, password };
+            const data = { username: username?.toLowerCase(), password };
             const preSets = { siteUrl };
 
             try {
@@ -1300,7 +1269,7 @@ export class CoreLoginHelperProvider {
             const dontShowAgain = await CorePrompts.show(message, 'checkbox', {
                 header,
                 placeholderOrLabel: Translate.instant('core.dontshowagain'),
-                buttons: { okText: Translate.instant('core.next'), cancelText: Translate.instant('core.cancel') },
+                buttons: [{ text: Translate.instant('core.ok') }],
             });
 
             if (dontShowAgain) {

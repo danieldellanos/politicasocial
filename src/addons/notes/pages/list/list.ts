@@ -17,8 +17,7 @@ import { AddonNotesAddModalReturn } from '@addons/notes/components/add/add-modal
 import { AddonNotes, AddonNotesNoteFormatted, AddonNotesPublishState } from '@addons/notes/services/notes';
 import { AddonNotesOffline } from '@addons/notes/services/notes-offline';
 import { AddonNotesSync } from '@addons/notes/services/notes-sync';
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { CoreAnimations } from '@components/animations';
+import { Component, OnDestroy, OnInit, viewChild } from '@angular/core';
 import { CoreUser, CoreUserProfile } from '@features/user/services/user';
 import { IonContent } from '@ionic/angular';
 import { CoreAnalytics, CoreAnalyticsEventType } from '@services/analytics';
@@ -42,15 +41,13 @@ import { CoreSharedModule } from '@/core/shared.module';
 @Component({
     selector: 'page-addon-notes-list-page',
     templateUrl: 'list.html',
-    animations: [CoreAnimations.SLIDE_IN_OUT],
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
 })
 export default class AddonNotesListPage implements OnInit, OnDestroy {
 
-    @ViewChild(IonContent) content?: IonContent;
+    readonly content = viewChild.required(IonContent);
 
     courseId!: number;
     userId?: number;
@@ -93,7 +90,7 @@ export default class AddonNotesListPage implements OnInit, OnDestroy {
                 this.refreshIcon = CoreConstants.ICON_LOADING;
                 this.syncIcon = CoreConstants.ICON_LOADING;
 
-                this.content?.scrollToTop();
+                this.content().scrollToTop();
                 this.fetchNotes(false);
             }
         }, CoreSites.getCurrentSiteId());
@@ -179,11 +176,8 @@ export default class AddonNotesListPage implements OnInit, OnDestroy {
 
     /**
      * Function called when the type has changed.
-     *
-     * @param type New type.
      */
-    async typeChanged(type: AddonNotesPublishState): Promise<void> {
-        this.type = type;
+    async typeChanged(): Promise<void> {
         this.notesLoaded = false;
         this.refreshIcon = CoreConstants.ICON_LOADING;
         this.syncIcon = CoreConstants.ICON_LOADING;
@@ -223,7 +217,8 @@ export default class AddonNotesListPage implements OnInit, OnDestroy {
 
                 this.refreshNotes(false);
             } else if (modalData.type && modalData.type != this.type) {
-                this.typeChanged(modalData.type);
+                this.type = modalData.type;
+                this.typeChanged();
             }
         }
     }

@@ -241,7 +241,7 @@ export class CoreSettingsHelperProvider {
         } else if (hasSyncHandlers && !CoreNetwork.isOnline()) {
             // We need connection to execute sync.
             throw new CoreError(Translate.instant('core.settings.cannotsyncoffline'));
-        } else if (hasSyncHandlers && syncOnlyOnWifi && CoreNetwork.isNetworkAccessLimited()) {
+        } else if (hasSyncHandlers && syncOnlyOnWifi && CoreNetwork.isCellular()) {
             throw new CoreError(Translate.instant('core.settings.cannotsyncwithoutwifi'));
         }
 
@@ -385,7 +385,7 @@ export class CoreSettingsHelperProvider {
     applyZoomLevel(zoomLevel: CoreZoomLevel): void {
         const zoom = CoreConstants.CONFIG.zoomlevels[zoomLevel];
 
-        document.documentElement.style.setProperty('--zoom-level', `${zoom}%`);
+        document.documentElement.style.setProperty('--zoom-ratio', `${zoom / 100}`);
     }
 
     /**
@@ -403,7 +403,7 @@ export class CoreSettingsHelperProvider {
             return;
         }
 
-        element.setAttribute('content', content.replace(/maximum-scale=\d\.\d/, `maximum-scale=${pinchToZoom ? '4.0' : '1.0'}`));
+        element.setAttribute('content', content.replace(/maximum-scale=\d\.\d/, `maximum-scale=${pinchToZoom ? '2.0' : '1.0'}`));
 
         // Force layout reflow.
         document.body.style.width = '99.9999%';

@@ -18,12 +18,17 @@ import {
     CUSTOM_ELEMENTS_SCHEMA,
     ElementRef,
     OnDestroy,
-    Optional,
     Type,
-    ViewChild, OnInit,
+    viewChild,
+    OnInit,
     Input,
     Output,
     EventEmitter,
+    inject,
+    effect,
+    signal,
+    afterNextRender,
+    Injector,
 } from '@angular/core';
 import { IonContent } from '@ionic/angular';
 import { CoreSharedModule } from '@/core/shared.module';
@@ -49,6 +54,7 @@ import { CoreLoadingComponent } from '@components/loading/loading';
 import { CoreToasts } from '@services/overlays/toasts';
 import { CorePromiseUtils } from '@singletons/promise-utils';
 import { convertTextToHTMLElement } from '@/core/utils/create-html-element';
+import { CoreKeyboard } from '@singletons/keyboard';
 
 /**
  * Component that displays a rich text editor.
@@ -60,15 +66,18 @@ import { convertTextToHTMLElement } from '@/core/utils/create-html-element';
     selector: 'core-rich-text-editor',
     templateUrl: 'core-rich-text-editor.html',
     styleUrl: 'rich-text-editor.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
     schemas: [CUSTOM_ELEMENTS_SCHEMA],
+    host: {
+        '[style.height]': 'height() + "px"',
+    },
 })
 export class CoreEditorRichTextEditorComponent implements AfterViewInit, OnDestroy, OnInit {
 
     private static readonly MIN_HEIGHT = 200; // Minimum height of the editor.
+    private static readonly MAX_HEIGHT = 400; // Maximum height of the editor.
     private static readonly DRAFT_AUTOSAVE_FREQUENCY = 30000;
 
     @Input() placeholder = ''; // Placeholder to set in textarea.
@@ -83,15 +92,16 @@ export class CoreEditorRichTextEditorComponent implements AfterViewInit, OnDestr
     @Input() draftExtraParams?: Record<string, unknown>; // Extra params to identify the draft.
     @Output() contentChanged: EventEmitter<string | undefined | null> = new EventEmitter();
 
-    @ViewChild(CoreDynamicComponent) dynamicComponent!: CoreDynamicComponent<CoreEditorBaseComponent>;
+    readonly dynamicComponent = viewChild.required(CoreDynamicComponent<CoreEditorBaseComponent>);
 
-    protected keyboardObserver?: CoreEventObserver;
+    protected injector = inject(Injector);
     protected resizeListener?: CoreEventObserver;
     protected editorComponentClass?: Type<CoreEditorBaseComponent>;
     protected editorComponentData: Record<string, unknown> = {};
     protected controlSubscription?: Subscription;
     protected labelObserver?: MutationObserver;
     protected setContentId = 0;
+    protected readonly height = signal(CoreEditorRichTextEditorComponent.MAX_HEIGHT);
 
     // Autosave.
     protected pageInstance: string;
@@ -100,15 +110,22 @@ export class CoreEditorRichTextEditorComponent implements AfterViewInit, OnDestr
     protected originalContent?: string;
     protected autoSaveInterval?: number;
     protected resetObserver?: CoreEventObserver;
-    protected element: HTMLElement;
+    protected element: HTMLElement = inject(ElementRef).nativeElement;
 
-    constructor(
-        @Optional() protected content: IonContent,
-        elementRef: ElementRef<HTMLElement>,
-    ) {
+    protected content = inject(IonContent);
+
+    constructor() {
          // Generate a "unique" ID based on timestamp.
         this.pageInstance = `app_${Date.now()}`;
-        this.element = elementRef.nativeElement;
+
+        // Resize the keyboard when opening or closing the keyboard.
+        // The window resize event is not fired because the webview is not resized anymore on both Android and iOS.
+        effect(() => {
+            // Signal will be triggered when the keyboard is shown or hidden.
+            CoreKeyboard.keyboardShownSignal();
+
+            this.resizeEditor(false);
+        });
     }
 
     /**
@@ -128,7 +145,6 @@ export class CoreEditorRichTextEditorComponent implements AfterViewInit, OnDestr
     async ngOnInit(): Promise<void> {
         this.editorComponentClass = await CoreEditorService.getEditorComponentClass();
         this.editorComponentData = {
-            name: this.name,
             placeholder: this.placeholder,
             component: this.component,
             componentId: this.componentId,
@@ -171,8 +187,6 @@ export class CoreEditorRichTextEditorComponent implements AfterViewInit, OnDestr
             this.element.setAttribute('id', this.elementId);
         }
 
-        this.maximizeEditorSize();
-
         this.setupIonItem();
 
         this.setContent(this.control?.value ?? '');
@@ -183,18 +197,14 @@ export class CoreEditorRichTextEditorComponent implements AfterViewInit, OnDestr
             this.deleteDraftOnSubmitOrCancel();
         }
 
-        this.resizeListener = CoreDom.onWindowResize(() => {
-            this.onWindowResize();
+        this.resizeListener = CoreDom.onWindowResize(async () => {
+            await CoreWait.waitForResizeDone();
+
+            await this.resizeEditor(true);
         }, 50);
 
         this.controlSubscription = this.control?.valueChanges.subscribe((newValue) => {
             this.onControlValueChange(newValue);
-        });
-
-        // Opening or closing the keyboard also calls the resize function, but sometimes the resize is called too soon.
-        // Check the height again, now the window height should have been updated.
-        this.keyboardObserver = CoreEvents.on(CoreEvents.KEYBOARD_CHANGE, () => {
-            this.maximizeEditorSize();
         });
     }
 
@@ -203,24 +213,10 @@ export class CoreEditorRichTextEditorComponent implements AfterViewInit, OnDestr
      */
     ngOnDestroy(): void {
         this.resizeListener?.off();
-        this.keyboardObserver?.off();
         this.controlSubscription?.unsubscribe();
         this.resetObserver?.off();
         this.labelObserver?.disconnect();
         clearInterval(this.autoSaveInterval);
-    }
-
-    /**
-     * @inheritdoc
-     */
-    async onWindowResize(): Promise<void> {
-        await CoreWait.waitForResizeDone();
-
-        await this.maximizeEditorSize();
-
-        // Call onResize on editor implementation once it is loaded.
-        await this.dynamicComponent.ready();
-        await this.dynamicComponent.callComponentMethod('onResize');
     }
 
     /**
@@ -373,7 +369,7 @@ export class CoreEditorRichTextEditorComponent implements AfterViewInit, OnDestr
                         this.elementId || '',
                         this.draftExtraParams || {},
                     );
-                } catch (error) {
+                } catch {
                     // Error deleting draft. Shouldn't happen.
                 }
             }
@@ -381,50 +377,39 @@ export class CoreEditorRichTextEditorComponent implements AfterViewInit, OnDestr
     }
 
     /**
-     * Resize editor to maximize the space occupied.
-     */
-    protected async maximizeEditorSize(): Promise<void> {
-        await this.waitLoadingsDone();
-
-        // Editor is ready, adjust Height if needed.
-        const blankHeight = await this.getBlankHeightInContent();
-        const newHeight = blankHeight + this.element.getBoundingClientRect().height;
-
-        if (newHeight > CoreEditorRichTextEditorComponent.MIN_HEIGHT) {
-            this.element.style.setProperty('--core-rte-height', `${newHeight - 1}px`);
-        } else {
-            this.element.style.removeProperty('--core-rte-height');
-        }
-    }
-
-    /**
-     * Get the height of the space in blank at the end of the page.
+     * Resizes the editor to fit the available space.
      *
-     * @returns Blank height in px. Will be negative if no blank space.
+     * @param allowGrow Allows increasing editor size if true, otherwise, only shrinking is allowed.
      */
-    protected async getBlankHeightInContent(): Promise<number> {
+    protected async resizeEditor(allowGrow: boolean): Promise<void> {
+        await this.waitLoadingsDone();
         await CoreDom.waitToBeInDOM(this.element);
         await CoreWait.nextTicks(10);
 
-        let content: Element | null = this.element.closest('ion-content');
         const contentHeight = await CoreDom.getContentHeight(this.content);
 
-        // Get first children with content, not fixed.
-        let scrollContentHeight = 0;
-        if (content) {
-            while (scrollContentHeight === 0 && content?.children) {
-                const children = Array.from(content.children)
-                    .filter((element) => element.slot !== 'fixed' && !element.classList.contains('core-loading-container'));
-
-                scrollContentHeight = children
-                    .map((element) => element.getBoundingClientRect().height)
-                    .reduce((a, b) => a + b, 0);
-
-                content = children[0];
-            }
+        if (contentHeight === 0) {
+            // The editor has probably been removed or hidden.
+            return;
         }
 
-        return contentHeight - scrollContentHeight;
+        // Reset to maximum size if orientation has changed.
+        if (allowGrow) {
+            this.height.set(CoreEditorRichTextEditorComponent.MAX_HEIGHT);
+        }
+
+        // Limit size to the available screen space.
+        this.height.set(Math.min(this.height(), contentHeight - 10));
+
+        // Make sure there is enough space to render the editor.
+        this.height.set(Math.max(this.height(), CoreEditorRichTextEditorComponent.MIN_HEIGHT));
+
+        afterNextRender(() => {
+            // Scroll editor into view if it has focus.
+            if (this.element.contains(document.activeElement)) {
+                this.element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }, { injector: this.injector });
     }
 
     /**
@@ -443,11 +428,11 @@ export class CoreEditorRichTextEditorComponent implements AfterViewInit, OnDestr
             await this.treatExternalContent(container);
         } finally {
             // Set content on once the editor implementation is ready.
-            await this.dynamicComponent.ready();
+            await this.dynamicComponent().ready();
 
             // Only set the content if the function was not called again while treating external content.
             if (id === this.setContentId) {
-                this.dynamicComponent.callComponentMethod('setContent', container.innerHTML);
+                this.dynamicComponent().callComponentMethod('setContent', container.innerHTML);
             }
         }
     }
@@ -546,7 +531,7 @@ export class CoreEditorRichTextEditorComponent implements AfterViewInit, OnDestr
         }
 
         const updateArialabelledBy = async () => {
-            await this.dynamicComponent.ready();
+            await this.dynamicComponent().ready();
             this.editorComponentData.ariaLabelledBy = label.getAttribute('id') ?? undefined;
         };
 

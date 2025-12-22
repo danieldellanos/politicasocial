@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { AddonBlockMyOverviewComponent } from '@addons/block/myoverview/components/myoverview/myoverview';
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, effect, OnDestroy, OnInit, viewChild, inject } from '@angular/core';
 import { AsyncDirective } from '@classes/async-directive';
 import { PageLoadsManager } from '@classes/page-loads-manager';
 import { CorePromisedValue } from '@classes/promised-value';
@@ -36,6 +36,7 @@ import { CoreSiteLogoComponent } from '../../../../components/site-logo/site-log
 import { CoreMainMenuUserButtonComponent } from '../../../mainmenu/components/user-menu-button/user-menu-button';
 import { CoreBlockSideBlocksButtonComponent } from '../../../block/components/side-blocks-button/side-blocks-button';
 import { CoreCoursesMyPageName } from '@features/courses/constants';
+import { ADDON_BLOCK_MYOVERVIEW_BLOCK_NAME } from '@addons/block/myoverview/constants';
 
 /**
  * Page that shows a my courses.
@@ -45,10 +46,9 @@ import { CoreCoursesMyPageName } from '@features/courses/constants';
     templateUrl: 'my.html',
     styleUrl: 'my.scss',
     providers: [{
-        provide: PageLoadsManager,
-        useClass: PageLoadsManager,
-    }],
-    standalone: true,
+            provide: PageLoadsManager,
+            useClass: PageLoadsManager,
+        }],
     imports: [
         CoreSharedModule,
         CoreSiteLogoComponent,
@@ -59,7 +59,7 @@ import { CoreCoursesMyPageName } from '@features/courses/constants';
 })
 export default class CoreCoursesMyPage implements OnInit, OnDestroy, AsyncDirective {
 
-    @ViewChild(CoreBlockComponent) block!: CoreBlockComponent;
+    readonly block = viewChild(CoreBlockComponent);
 
     downloadCoursesEnabled = false;
     userId: number;
@@ -73,8 +73,9 @@ export default class CoreCoursesMyPage implements OnInit, OnDestroy, AsyncDirect
     protected onReadyPromise = new CorePromisedValue<void>();
     protected loadsManagerSubscription: Subscription;
     protected logView: () => void;
+    protected loadsManager = inject(PageLoadsManager);
 
-    constructor(protected loadsManager: PageLoadsManager) {
+    constructor() {
         // Refresh the enabled flags if site is updated.
         this.updateSiteObserver = CoreEvents.on(CoreEvents.SITE_UPDATED, async () => {
             this.downloadCoursesEnabled = !CoreCourses.isDownloadCoursesDisabledInSite();
@@ -85,6 +86,15 @@ export default class CoreCoursesMyPage implements OnInit, OnDestroy, AsyncDirect
         this.loadsManagerSubscription = this.loadsManager.onRefreshPage.subscribe(() => {
             this.loaded = false;
             this.loadContent();
+        });
+
+        effect(async () => {
+            const dynamicComponent = this.block()?.dynamicComponent();
+
+            if (dynamicComponent) {
+                await dynamicComponent.ready();
+                this.myOverviewBlock = dynamicComponent.instance;
+            }
         });
 
         this.logView = CoreTime.once(async () => {
@@ -133,12 +143,11 @@ export default class CoreCoursesMyPage implements OnInit, OnDestroy, AsyncDirect
                 );
 
                 // My overview block should always be in main blocks, but check side blocks too just in case.
-                this.loadedBlock = blocks.mainBlocks.concat(blocks.sideBlocks).find((block) => block.name === 'myoverview');
+                this.loadedBlock = blocks.mainBlocks.concat(blocks.sideBlocks).find((block) =>
+                    block.name === ADDON_BLOCK_MYOVERVIEW_BLOCK_NAME);
                 this.hasSideBlocks = supportsMyParam && CoreBlockDelegate.hasSupportedBlock(blocks.sideBlocks);
 
                 await CoreWait.nextTicks(2);
-
-                this.myOverviewBlock = this.block?.dynamicComponent?.instance as AddonBlockMyOverviewComponent;
 
                 if (!this.loadedBlock && !supportsMyParam) {
                     // In old sites, display the block even if not found in Dashboard.
@@ -169,7 +178,7 @@ export default class CoreCoursesMyPage implements OnInit, OnDestroy, AsyncDirect
      */
     protected loadFallbackBlock(): void {
         this.loadedBlock = {
-            name: 'myoverview',
+            name: ADDON_BLOCK_MYOVERVIEW_BLOCK_NAME,
             visible: true,
         };
     }

@@ -15,7 +15,6 @@
 import { TestingBehatDomUtils, TestingBehatDomUtilsService } from './behat-dom';
 import { TestingBehatBlocking } from './behat-blocking';
 import { CoreCustomURLSchemes, CoreCustomURLSchemesProvider } from '@services/urlschemes';
-import { ONBOARDING_DONE } from '@features/login/constants';
 import { CoreConfig } from '@services/config';
 import { EnvironmentConfig } from '@/types/config';
 import { LocalNotifications, makeSingleton, NgZone, ToastController } from '@singletons';
@@ -34,6 +33,8 @@ import { LocalNotificationsMock } from '@features/emulator/services/local-notifi
 import { GetClosureArgs } from '@/core/utils/types';
 import { CoreIframeComponent } from '@components/iframe/iframe';
 import { CorePromiseUtils } from '@singletons/promise-utils';
+import { CoreLang } from '@services/lang';
+import { CoreEvents } from '@singletons/events';
 
 /**
  * Behat runtime servive with public API.
@@ -87,10 +88,6 @@ export class TestingBehatRuntimeService {
 
         this.initialized = true;
         TestingBehatBlocking.init();
-
-        if (options.skipOnBoarding) {
-            CoreConfig.set(ONBOARDING_DONE, 1);
-        }
 
         if (options.configOverrides) {
             // Set the cookie so it's maintained between reloads.
@@ -249,16 +246,19 @@ export class TestingBehatRuntimeService {
 
         switch (button) {
             case 'more menu':
-                foundButton = TestingBehatDomUtils.findElementBasedOnText({
-                    text: 'More',
-                    selector: 'ion-tab-button',
-                }, options);
+                foundButton = TestingBehatDomUtils.findElementBasedOnSelector('ion-tab-button#tab-button-more', options);
                 break;
             case 'user menu' :
-                foundButton = TestingBehatDomUtils.findElementBasedOnText({ text: 'User account' }, options);
+                foundButton = TestingBehatDomUtils.findElementBasedOnSelector(
+                    'core-user-menu-button core-user-avatar',
+                    options,
+                );
                 break;
-            case 'page menu':
-                foundButton = TestingBehatDomUtils.findElementBasedOnText({ text: 'Display options' }, options);
+            case 'page context menu':
+                foundButton = TestingBehatDomUtils.findElementBasedOnSelector(
+                    'ion-header core-context-menu ion-button',
+                    options,
+                );
                 break;
             default:
                 return 'ERROR: Unsupported standard button type';
@@ -326,14 +326,10 @@ export class TestingBehatRuntimeService {
     protected async goBack(): Promise<boolean> {
         const options: TestingBehatFindOptions = {
             onlyClickable: true,
-            containerName: '',
+            containerName: 'ion-header',
         };
 
-        const foundButton = TestingBehatDomUtils.findElementBasedOnText({
-            text: 'Back',
-            selector: 'ion-back-button',
-        }, options);
-
+        const foundButton = TestingBehatDomUtils.findElementBasedOnSelector('ion-back-button', options);
         if (!foundButton) {
             return false;
         }
@@ -909,6 +905,28 @@ export class TestingBehatRuntimeService {
     }
 
     /**
+     * Change app language.
+     *
+     * @param language Language code to set.
+     * @returns OK if successful.
+     */
+    async changeLanguage(language: string): Promise<string> {
+        this.log(`Action - Change language to: ${language}`);
+        await CoreLang.changeCurrentLanguage(language);
+
+        const sites = await CoreSites.getSitesInstances();
+        await CorePromiseUtils.ignoreErrors(Promise.all(sites.map((site) => site.invalidateWsCache())));
+
+        CoreEvents.trigger(CoreEvents.LANGUAGE_CHANGED, language);
+
+        CoreNavigator.navigate('/reload', {
+            reset: true,
+        });
+
+        return 'OK';
+    }
+
+    /**
      * Wait for toast to be dismissed in the app.
      *
      * @returns Promise resolved when toast has been dismissed.
@@ -942,6 +960,5 @@ export type TestingBehatElementLocator = {
 };
 
 export type TestingBehatInitOptions = {
-    skipOnBoarding?: boolean;
     configOverrides?: Partial<EnvironmentConfig>;
 };

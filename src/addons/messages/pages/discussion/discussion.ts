@@ -12,21 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, inject, viewChild } from '@angular/core';
 import { IonContent } from '@ionic/angular';
 import { CoreEventObserver, CoreEvents } from '@singletons/events';
 import { CoreSites } from '@services/sites';
 import {
     AddonMessagesConversationFormatted,
     AddonMessagesConversationMember,
-    AddonMessagesGetMessagesMessage,
     AddonMessages,
     AddonMessagesConversationMessageFormatted,
     AddonMessagesSendMessageResults,
 } from '../../services/messages';
-import { AddonMessagesOffline, AddonMessagesOfflineMessagesDBRecordFormatted } from '../../services/messages-offline';
+import { AddonMessagesOffline } from '../../services/messages-offline';
 import { AddonMessagesSync } from '../../services/messages-sync';
-import { CoreUser } from '@features/user/services/user';
 import { CorePromiseUtils } from '@singletons/promise-utils';
 import { CoreLogger } from '@singletons/logger';
 import { CoreInfiniteLoadingComponent } from '@components/infinite-loading/infinite-loading';
@@ -58,6 +56,7 @@ import {
 } from '@addons/messages/constants';
 import { CoreAlerts, CoreAlertsConfirmOptions } from '@services/overlays/alerts';
 import { CoreSharedModule } from '@/core/shared.module';
+import { CoreSplitViewComponent } from '@components/split-view/split-view';
 
 /**
  * Page that displays a message discussion page.
@@ -66,15 +65,14 @@ import { CoreSharedModule } from '@/core/shared.module';
     selector: 'page-addon-messages-discussion',
     templateUrl: 'discussion.html',
     styleUrls: ['../../../../theme/components/discussion.scss', 'discussion.scss'],
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
 })
 export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, AfterViewInit {
 
-    @ViewChild(IonContent) content?: IonContent;
-    @ViewChild(CoreInfiniteLoadingComponent) infinite?: CoreInfiniteLoadingComponent;
+    readonly content = viewChild.required(IonContent);
+    readonly infinite = viewChild(CoreInfiniteLoadingComponent);
 
     protected fetching = false;
     protected polling?: number;
@@ -90,7 +88,9 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
     protected viewDestroyed = false;
     protected memberInfoObserver: CoreEventObserver;
     protected showLoadingModal = false; // Whether to show a loading modal while fetching data.
-    protected hostElement: HTMLElement;
+    protected hostElement: HTMLElement = inject(ElementRef).nativeElement;
+    protected route = inject(ActivatedRoute);
+    protected splitView = inject(CoreSplitViewComponent, { optional: true });
 
     conversationId?: number; // Conversation ID. Undefined if it's a new individual conversation.
     conversation?: AddonMessagesConversationFormatted; // The conversation object (if it exists).
@@ -107,7 +107,6 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
     messages: AddonMessagesConversationMessageFormatted[] = [];
     showDelete = false;
     canDelete = false;
-    groupMessagingEnabled: boolean;
     isGroup = false;
     members: {[id: number]: AddonMessagesConversationMember} = {}; // Members that wrote a message, indexed by ID.
     favouriteIcon = 'fas-star';
@@ -126,14 +125,9 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
     unreadMessageFrom = 0;
     initialized = false;
 
-    constructor(
-        protected route: ActivatedRoute,
-        protected elementRef: ElementRef<HTMLElement>,
-    ) {
-        this.hostElement = elementRef.nativeElement;
+    constructor() {
         this.siteId = CoreSites.getCurrentSiteId();
         this.currentUserId = CoreSites.getCurrentSiteUserId();
-        this.groupMessagingEnabled = AddonMessages.isGroupMessagingEnabled();
         this.muteEnabled = AddonMessages.isMuteConversationEnabled();
 
         this.logger = CoreLogger.getInstance('AddonMessagesDiscussionPage');
@@ -165,9 +159,7 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
     }
 
     /**
-     * Runs when the page has loaded. This event only happens once per page being created.
-     * If a page leaves but is cached, then this event will not fire again on a subsequent viewing.
-     * Setup code for the page.
+     * @inheritdoc
      */
     async ngOnInit(): Promise<void> {
         this.conversationId = CoreNavigator.getRouteNumberParam('conversationId');
@@ -181,10 +173,10 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
     }
 
     /**
-     * View has been initialized.
+     * @inheritdoc
      */
     async ngAfterViewInit(): Promise<void> {
-        this.scrollElement = await this.content?.getScrollElement();
+        this.scrollElement = await this.content().getScrollElement();
     }
 
     /**
@@ -240,28 +232,11 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
 
     /**
      * Convenience function to fetch the conversation data.
-     *
-     * @returns Resolved when done.
      */
     protected async fetchData(): Promise<void> {
         let loader: CoreIonLoadingElement | undefined;
         if (this.showLoadingModal) {
             loader = await CoreLoadings.show();
-        }
-
-        if (!this.groupMessagingEnabled && this.userId) {
-            // Get the user profile to retrieve the user fullname and image.
-            CoreUser.getProfile(this.userId, undefined, true).then((user) => {
-                if (!this.title) {
-                    this.title = user.fullname;
-                }
-                this.conversationImage = user.profileimageurl;
-                this.members[user.id] = <AddonMessagesConversationMember>user;
-
-                return;
-            }).catch(() => {
-                // Ignore errors.
-            });
         }
 
         // Synchronize messages if needed.
@@ -276,80 +251,30 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
 
         try {
             const promises: Promise<void>[] = [];
-            if (this.groupMessagingEnabled) {
-                // Get the conversation ID if it exists and we don't have it yet.
-                const exists = await this.getConversation(this.conversationId, this.userId);
+            // Get the conversation ID if it exists and we don't have it yet.
+            const exists = await this.getConversation(this.conversationId, this.userId);
 
-                if (exists) {
-                    // Fetch the messages for the first time.
-                    promises.push(this.fetchMessages());
-                }
-
-                if (this.userId) {
-                    const userId = this.userId;
-                    // Get the member info. Invalidate first to make sure we get the latest status.
-                    promises.push(AddonMessages.invalidateMemberInfo(this.userId).then(async () => {
-                        this.otherMember = await AddonMessages.getMemberInfo(userId);
-
-                        if (!exists && this.otherMember) {
-                            this.conversationImage = this.otherMember.profileimageurl;
-                            this.title = this.otherMember.fullname;
-                        }
-                        this.blockIcon = this.otherMember.isblocked ? 'fas-user-check' : 'fas-user-lock';
-
-                        return;
-                    }));
-                } else {
-                    this.otherMember = undefined;
-                }
-
-            } else {
-                if (this.userId) {
-                    const userId = this.userId;
-
-                    // Fake the user member info.
-                    promises.push(CoreUser.getProfile(this.userId).then(async (user) => {
-                        this.otherMember = {
-                            id: user.id,
-                            fullname: user.fullname,
-                            profileurl: '',
-                            profileimageurl: user.profileimageurl || '',
-                            profileimageurlsmall: user.profileimageurlsmall || '',
-                            isonline: false,
-                            showonlinestatus: false,
-                            isblocked: false,
-                            iscontact: false,
-                            isdeleted: false,
-                            canmessageevenifblocked: true,
-                            canmessage: true,
-                            requirescontact: false,
-                        };
-                        this.otherMember.isblocked = await AddonMessages.isBlocked(userId);
-                        this.otherMember.iscontact = await AddonMessages.isContact(userId);
-                        this.blockIcon = this.otherMember.isblocked ? 'fas-user-check' : 'fas-user-lock';
-
-                        return;
-                    }));
-
-                }
-
+            if (exists) {
                 // Fetch the messages for the first time.
-                promises.push(this.fetchMessages().then(() => {
-                    if (!this.title && this.messages.length) {
-                        // Didn't receive the fullname via argument. Try to get it from messages.
-                        // It's possible that name cannot be resolved when no messages were yet exchanged.
-                        const firstMessage = this.messages[0];
-                        if ('usertofullname' in firstMessage) {
-                            if (firstMessage.useridto != this.currentUserId) {
-                                this.title = firstMessage.usertofullname || '';
-                            } else {
-                                this.title = firstMessage.userfromfullname || '';
-                            }
-                        }
+                promises.push(this.fetchMessages());
+            }
+
+            if (this.userId) {
+                const userId = this.userId;
+                // Get the member info. Invalidate first to make sure we get the latest status.
+                promises.push(AddonMessages.invalidateMemberInfo(this.userId).then(async () => {
+                    this.otherMember = await AddonMessages.getMemberInfo(userId);
+
+                    if (!exists && this.otherMember) {
+                        this.conversationImage = this.otherMember.profileimageurl;
+                        this.title = this.otherMember.fullname;
                     }
+                    this.blockIcon = this.otherMember.isblocked ? 'fas-user-check' : 'fas-user-lock';
 
                     return;
                 }));
+            } else {
+                this.otherMember = undefined;
             }
 
             await Promise.all(promises);
@@ -361,7 +286,8 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
             this.setPolling(); // Make sure we're polling messages.
             this.setContactRequestInfo();
             this.setFooterType();
-            loader && loader.dismiss();
+            // this.loaded = true;
+            loader?.dismiss();
         }
     }
 
@@ -384,7 +310,6 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
      * Convenience function to fetch messages.
      *
      * @param messagesAreNew If messages loaded are new messages.
-     * @returns Resolved when done.
      */
     protected async fetchMessages(messagesAreNew: boolean = true): Promise<void> {
         this.loadMoreError = false;
@@ -396,7 +321,7 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
         } else if (this.fetching) {
             // Already fetching.
             return;
-        } else if (this.groupMessagingEnabled && !this.conversationId) {
+        } else if (!this.conversationId) {
             // Don't have enough data to fetch messages.
             throw new CoreError('No enough data provided to fetch messages');
         }
@@ -416,15 +341,9 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
             // Wait for synchronization process to finish.
             await AddonMessagesSync.waitForSyncConversation(this.conversationId, this.userId);
 
-            let messages: AddonMessagesConversationMessageFormatted[] = [];
             // Fetch messages. Invalidate the cache before fetching.
-            if (this.groupMessagingEnabled) {
-                await AddonMessages.invalidateConversationMessages(this.conversationId!);
-                messages = await this.getConversationMessages(this.pagesLoaded);
-            } else {
-                await AddonMessages.invalidateDiscussionCache(this.userId!);
-                messages = await this.getDiscussionMessages(this.pagesLoaded);
-            }
+            await AddonMessages.invalidateConversationMessages(this.conversationId!);
+            const messages = await this.getConversationMessages(this.pagesLoaded);
 
             this.loadMessages(messages, messagesAreNew);
 
@@ -482,7 +401,7 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
 
         // If we received a new message while using group messaging, force mark messages as read.
         const last = this.messages[this.messages.length - 1];
-        const forceMark = this.groupMessagingEnabled && last && last.useridfrom !== this.currentUserId && !!this.lastMessage
+        const forceMark = last && last.useridfrom !== this.currentUserId && !!this.lastMessage
                     && (last.text !== this.lastMessage.text || last.timecreated !== this.lastMessage.timecreated);
 
         // Notify that there can be a new message.
@@ -675,71 +594,6 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
     }
 
     /**
-     * Get a discussion. Can load several "pages".
-     *
-     * @param pagesToLoad Number of pages to load.
-     * @param lfReceivedUnread Number of unread received messages already fetched, so fetch will be done from this.
-     * @param lfReceivedRead Number of read received messages already fetched, so fetch will be done from this.
-     * @param lfSentUnread Number of unread sent messages already fetched, so fetch will be done from this.
-     * @param lfSentRead Number of read sent messages already fetched, so fetch will be done from this.
-     * @returns Resolved when done.
-     */
-    protected async getDiscussionMessages(
-        pagesToLoad: number,
-        lfReceivedUnread: number = 0,
-        lfReceivedRead: number = 0,
-        lfSentUnread: number = 0,
-        lfSentRead: number = 0,
-    ): Promise<(AddonMessagesGetMessagesMessage | AddonMessagesOfflineMessagesDBRecordFormatted)[]> {
-
-        // Only get offline messages if we're loading the first "page".
-        const excludePending = lfReceivedUnread > 0 || lfReceivedRead > 0 || lfSentUnread > 0 || lfSentRead > 0;
-
-        // Get next messages.
-        const result = await AddonMessages.getDiscussion(
-            this.userId!,
-            excludePending,
-            lfReceivedUnread,
-            lfReceivedRead,
-            lfSentUnread,
-            lfSentRead,
-        );
-
-        pagesToLoad--;
-        if (pagesToLoad > 0 && result.canLoadMore) {
-            // More pages to load. Calculate new limit froms.
-            result.messages.forEach((message) => {
-                if (!message.pending && 'read' in message) {
-                    if (message.useridfrom == this.userId) {
-                        if (message.read) {
-                            lfReceivedRead++;
-                        } else {
-                            lfReceivedUnread++;
-                        }
-                    } else {
-                        if (message.read) {
-                            lfSentRead++;
-                        } else {
-                            lfSentUnread++;
-                        }
-                    }
-                }
-            });
-
-            // Get next messages.
-            const nextMessages =
-                await this.getDiscussionMessages(pagesToLoad, lfReceivedUnread, lfReceivedRead, lfSentUnread, lfSentRead);
-
-            return result.messages.concat(nextMessages);
-        } else {
-            // No more messages to load, return them.
-            this.canLoadMore = result.canLoadMore;
-
-            return result.messages;
-        }
-    }
-
-    /**
      * Mark messages as read.
      */
     protected async markMessagesAsRead(forceMark: boolean): Promise<void> {
@@ -749,30 +603,15 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
         // Mark all messages at a time if there is any unread message.
         if (forceMark) {
             messageUnreadFound = true;
-        } else if (this.groupMessagingEnabled) {
+        } else {
             messageUnreadFound = !!((this.conversation?.unreadcount && this.conversation?.unreadcount > 0) &&
                 (this.conversationId && this.conversationId > 0));
-        } else {
-            // If an unread message is found, mark all messages as read.
-            messageUnreadFound = this.messages.some((message) =>
-                message.useridfrom != this.currentUserId && ('read' in message && !message.read));
         }
 
         if (messageUnreadFound) {
             this.setUnreadLabelPosition();
 
-            if (this.groupMessagingEnabled) {
-                await AddonMessages.markAllConversationMessagesRead(this.conversationId!);
-            } else {
-                await AddonMessages.markAllMessagesRead(this.userId);
-
-                // Mark all messages as read.
-                this.messages.forEach((message) => {
-                    if ('read' in message) {
-                        message.read = true;
-                    }
-                });
-            }
+            await AddonMessages.markAllConversationMessagesRead(this.conversationId!);
 
             readChanged = true;
         }
@@ -829,38 +668,19 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
             return;
         }
 
-        if (this.groupMessagingEnabled) {
-            // Use the unreadcount from the conversation to calculate where should the label be placed.
-            if (this.conversation && (this.conversation?.unreadcount && this.conversation?.unreadcount > 0) && this.messages) {
-                // Iterate over messages to find the right message using the unreadcount. Skip offline messages and own messages.
-                let found = 0;
+        // Use the unreadcount from the conversation to calculate where should the label be placed.
+        if (this.conversation && (this.conversation?.unreadcount && this.conversation?.unreadcount > 0) && this.messages) {
+            // Iterate over messages to find the right message using the unreadcount. Skip offline messages and own messages.
+            let found = 0;
 
-                for (let i = this.messages.length - 1; i >= 0; i--) {
-                    const message = this.messages[i];
-                    if (!message.pending && message.useridfrom != this.currentUserId && 'id' in message) {
-                        found++;
-                        if (found == this.conversation.unreadcount) {
-                            this.unreadMessageFrom = Number(message.id);
-                            break;
-                        }
-                    }
-                }
-            }
-        } else {
-            let previousMessageRead = false;
-
-            for (const x in this.messages) {
-                const message = this.messages[x];
-                if (message.useridfrom != this.currentUserId && 'read' in message) {
-                    const unreadFrom = !message.read && previousMessageRead;
-
-                    if (unreadFrom) {
-                        // Save where the label is placed.
+            for (let i = this.messages.length - 1; i >= 0; i--) {
+                const message = this.messages[i];
+                if (!message.pending && message.useridfrom != this.currentUserId && 'id' in message) {
+                    found++;
+                    if (found == this.conversation.unreadcount) {
                         this.unreadMessageFrom = Number(message.id);
                         break;
                     }
-
-                    previousMessageRead = !!message.read;
                 }
             }
         }
@@ -892,8 +712,6 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
 
     /**
      * Wait until fetching is false.
-     *
-     * @returns Resolved when done.
      */
     protected async waitForFetch(): Promise<void> {
         if (!this.fetching) {
@@ -908,7 +726,7 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
      * Set a polling to get new messages every certain time.
      */
     protected setPolling(): void {
-        if (this.groupMessagingEnabled && !this.conversationId) {
+        if (!this.conversationId) {
             // Don't have enough data to poll messages.
             return;
         }
@@ -995,7 +813,6 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
      * Function to load previous messages.
      *
      * @param infiniteComplete Infinite scroll complete function. Only used from core-infinite-loading.
-     * @returns Resolved when done.
      */
     async loadPrevious(infiniteComplete?: () => void): Promise<void> {
         if (!this.initialized) {
@@ -1007,7 +824,7 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
             return;
         }
 
-        let infiniteHeight = this.infinite?.hostElement.getBoundingClientRect().height || 0;
+        let infiniteHeight = this.infinite()?.hostElement.getBoundingClientRect().height || 0;
         const scrollHeight = (this.scrollElement?.scrollHeight || 0);
 
         // If there is an ongoing fetch, wait for it to finish.
@@ -1022,8 +839,8 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
                 // Try to keep the scroll position.
                 const scrollBottom = scrollHeight - (this.scrollElement?.scrollTop || 0);
 
-                const height = this.infinite?.hostElement.getBoundingClientRect().height || 0;
-                if (this.canLoadMore && infiniteHeight && this.infinite) {
+                const height = this.infinite()?.hostElement.getBoundingClientRect().height || 0;
+                if (this.canLoadMore && infiniteHeight && this.infinite()) {
                     // The height of the infinite is different while spinner is shown. Add that difference.
                     infiniteHeight = infiniteHeight - height;
                 } else if (!this.canLoadMore) {
@@ -1063,7 +880,7 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
                 const newScrollHeight = (this.scrollElement?.scrollHeight || 0);
                 const scrollTo = newScrollHeight - oldScrollBottom + infiniteHeight;
 
-                this.content!.scrollToPoint(0, scrollTo, 0);
+                this.content().scrollToPoint(0, scrollTo, 0);
             }, 30);
         }, 30);
     }
@@ -1084,8 +901,9 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
             // Leave time for the view to be rendered.
             await CoreWait.nextTicks(5);
 
-            if (!this.viewDestroyed && this.content) {
-                this.content.scrollToBottom(0);
+            const content = this.content();
+            if (!this.viewDestroyed && content) {
+                content.scrollToBottom(0);
             }
 
             if (force) {
@@ -1098,11 +916,12 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
      * Scroll to the first new unread message.
      */
     scrollToFirstUnreadMessage(): void {
-        if (this.newMessages > 0) {
-            const messages = Array.from(this.hostElement.querySelectorAll<HTMLElement>('core-message:not(.is-mine)'));
-
-            CoreDom.scrollToElement(messages[messages.length - this.newMessages]);
+        if (this.newMessages <= 0) {
+            return;
         }
+        const messages = Array.from(this.hostElement.querySelectorAll<HTMLElement>('core-message:not(.is-mine)'));
+
+        CoreDom.scrollToElement(messages[messages.length - this.newMessages]);
     }
 
     /**
@@ -1267,10 +1086,8 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
             });
 
             if (userId !== undefined) {
-                const splitViewLoaded = CoreNavigator.isCurrentPathInTablet('**/messages/**/discussion/**');
-
                 // Open user conversation.
-                if (splitViewLoaded) {
+                if (this.splitView?.outletActivated) {
                     // Notify the left pane to load it, this way the right conversation will be highlighted.
                     CoreEvents.trigger(
                         ADDON_MESSAGES_OPEN_CONVERSATION_EVENT,
@@ -1361,10 +1178,11 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
         this.requestContactSent = false;
         this.requestContactReceived = false;
         if (this.otherMember && !this.otherMember.iscontact) {
+            const otherMemberId = this.otherMember.id;
             this.requestContactSent = !!this.otherMember.contactrequests?.some((request) =>
-                request.userid == this.currentUserId && request.requesteduserid == this.otherMember!.id);
+                request.userid === this.currentUserId && request.requesteduserid === otherMemberId);
             this.requestContactReceived = !!this.otherMember.contactrequests?.some((request) =>
-                request.userid == this.otherMember!.id && request.requesteduserid == this.currentUserId);
+                request.userid === otherMemberId && request.requesteduserid === this.currentUserId);
         }
     }
 
@@ -1517,8 +1335,6 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
 
     /**
      * Displays a confirmation modal to send a contact request to the other user of the individual conversation.
-     *
-     * @returns Promise resolved when the request is sent or the dialog is cancelled.
      */
     async createContactRequest(): Promise<void> {
         if (!this.otherMember) {
@@ -1555,8 +1371,6 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
 
     /**
      * Confirms the contact request of the other user of the individual conversation.
-     *
-     * @returns Promise resolved when the request is confirmed.
      */
     async confirmContactRequest(): Promise<void> {
         if (!this.otherMember) {
@@ -1581,8 +1395,6 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
 
     /**
      * Declines the contact request of the other user of the individual conversation.
-     *
-     * @returns Promise resolved when the request is confirmed.
      */
     async declineContactRequest(): Promise<void> {
         if (!this.otherMember) {
@@ -1607,8 +1419,6 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
 
     /**
      * Displays a confirmation modal to remove the other user of the conversation from contacts.
-     *
-     * @returns Promise resolved when the request is sent or the dialog is cancelled.
      */
     async removeContact(): Promise<void> {
         if (!this.otherMember) {
@@ -1645,7 +1455,7 @@ export default class AddonMessagesDiscussionPage implements OnInit, OnDestroy, A
     }
 
     /**
-     * Page destroyed.
+     * @inheritdoc
      */
     ngOnDestroy(): void {
         // Unset again, just in case.

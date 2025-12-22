@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ElementRef, inject, viewChild } from '@angular/core';
 import { FormGroup, FormBuilder, Validators } from '@angular/forms';
 import { CoreError } from '@classes/errors/error';
 import { CoreCourseModuleData } from '@features/course/services/course-helper';
@@ -56,7 +56,6 @@ import { CorePromiseUtils } from '@singletons/promise-utils';
 @Component({
     selector: 'page-addon-mod-workshop-edit-submission',
     templateUrl: 'edit-submission.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreEditorRichTextEditorComponent,
@@ -64,7 +63,7 @@ import { CorePromiseUtils } from '@singletons/promise-utils';
 })
 export default class AddonModWorkshopEditSubmissionPage implements OnInit, OnDestroy, CanLeave {
 
-    @ViewChild('editFormEl') formElement!: ElementRef;
+    readonly formElement = viewChild<ElementRef>('editFormEl');
 
     module!: CoreCourseModuleData;
     courseId!: number;
@@ -97,11 +96,9 @@ export default class AddonModWorkshopEditSubmissionPage implements OnInit, OnDes
     protected forceLeave = false;
     protected siteId: string;
     protected isDestroyed = false;
+    protected fb = inject(FormBuilder);
 
-    constructor(
-        protected fb: FormBuilder,
-    ) {
-
+    constructor() {
         this.userId = CoreSites.getCurrentSiteUserId();
         this.siteId = CoreSites.getCurrentSiteId();
 
@@ -163,7 +160,7 @@ export default class AddonModWorkshopEditSubmissionPage implements OnInit, OnDes
             CoreFileUploader.clearTmpFiles(this.submission.attachmentfiles);
         }
 
-        CoreForms.triggerFormCancelledEvent(this.formElement, this.siteId);
+        CoreForms.triggerFormCancelledEvent(this.formElement(), this.siteId);
 
         return true;
     }
@@ -176,10 +173,10 @@ export default class AddonModWorkshopEditSubmissionPage implements OnInit, OnDes
     protected async fetchSubmissionData(): Promise<void> {
         try {
             this.workshop = await AddonModWorkshop.getWorkshop(this.courseId, this.module.id);
-            this.textAvailable = (this.workshop.submissiontypetext != AddonModWorkshopSubmissionType.SUBMISSION_TYPE_DISABLED);
-            this.textRequired = (this.workshop.submissiontypetext == AddonModWorkshopSubmissionType.SUBMISSION_TYPE_REQUIRED);
-            this.fileAvailable = (this.workshop.submissiontypefile != AddonModWorkshopSubmissionType.SUBMISSION_TYPE_DISABLED);
-            this.fileRequired = (this.workshop.submissiontypefile == AddonModWorkshopSubmissionType.SUBMISSION_TYPE_REQUIRED);
+            this.textAvailable = (this.workshop.submissiontypetext !== AddonModWorkshopSubmissionType.SUBMISSION_TYPE_DISABLED);
+            this.textRequired = (this.workshop.submissiontypetext === AddonModWorkshopSubmissionType.SUBMISSION_TYPE_REQUIRED);
+            this.fileAvailable = (this.workshop.submissiontypefile !== AddonModWorkshopSubmissionType.SUBMISSION_TYPE_DISABLED);
+            this.fileRequired = (this.workshop.submissiontypefile === AddonModWorkshopSubmissionType.SUBMISSION_TYPE_REQUIRED);
 
             this.editForm.controls.content.setValidators(this.textRequired ? Validators.required : null);
 
@@ -475,7 +472,7 @@ export default class AddonModWorkshopEditSubmissionPage implements OnInit, OnDes
                 }
             }
 
-            CoreForms.triggerFormSubmittedEvent(this.formElement, !!newSubmissionId, this.siteId);
+            CoreForms.triggerFormSubmittedEvent(this.formElement(), !!newSubmissionId, this.siteId);
 
             const data: AddonModWorkshopSubmissionChangedEventData = {
                 workshopId: this.workshopId,

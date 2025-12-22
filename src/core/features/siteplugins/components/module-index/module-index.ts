@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit, OnDestroy, Input, ViewChild, HostBinding, Optional } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, inject, viewChild } from '@angular/core';
 
 import { CoreSiteWSPreSets } from '@classes/sites/authenticated-site';
 import { CoreCourseModuleSummaryResult } from '@features/course/components/module-summary/module-summary';
@@ -42,13 +42,15 @@ import { CoreCourseModuleNavigationComponent } from '@features/course/components
     selector: 'core-site-plugins-module-index',
     templateUrl: 'core-siteplugins-module-index.html',
     styles: [':host { display: contents; }'],
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreSitePluginsPluginContentComponent,
         CoreCourseModuleInfoComponent,
         CoreCourseModuleNavigationComponent,
     ],
+    host: {
+        '[class]': 'component',
+    },
 })
 export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, CoreCourseModuleMainComponent {
 
@@ -56,9 +58,9 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
     @Input({ required: true }) courseId!: number; // Course ID the module belongs to.
     @Input() pageTitle?: string; // Current page title. It can be used by the "new-content" directives.
 
-    @ViewChild(CoreSitePluginsPluginContentComponent) content?: CoreSitePluginsPluginContentComponent;
+    readonly content = viewChild(CoreSitePluginsPluginContentComponent);
 
-    @HostBinding('class') component?: string;
+    component?: string;
     method?: string;
     args?: Record<string, unknown>;
     initResult?: CoreSitePluginsContent | null;
@@ -82,7 +84,7 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
 
     jsData?: Record<string, unknown>; // Data to pass to the component.
 
-    constructor(@Optional() public courseContentsPage?: CoreCourseContentsPage) {}
+    courseContentsPage = inject(CoreCourseContentsPage, { optional: true });
 
     /**
      * @inheritdoc
@@ -134,7 +136,7 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
      */
     async doRefresh(refresher?: HTMLIonRefresherElement | null): Promise<void> {
         try {
-            await this.content?.refreshContent(false);
+            await this.content()?.refreshContent(false);
         } finally {
             refresher?.complete();
         }
@@ -189,8 +191,9 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
             },
         });
 
-        if (data && data.action == 'refresh' && this.content?.dataLoaded) {
-            this.content?.refreshContent(true);
+        const content = this.content();
+        if (data && data.action == 'refresh' && content?.dataLoaded) {
+            content?.refreshContent(true);
         }
     }
 
@@ -209,7 +212,7 @@ export class CoreSitePluginsModuleIndexComponent implements OnInit, OnDestroy, C
      * @returns Result of the call. Undefined if no component instance or the function doesn't exist.
      */
     callComponentFunction(name: string, params?: unknown[]): unknown | undefined {
-        return this.content?.callComponentFunction(name, params);
+        return this.content()?.callComponentFunction(name, params);
     }
 
 }

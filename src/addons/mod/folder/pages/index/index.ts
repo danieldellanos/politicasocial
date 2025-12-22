@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, viewChild } from '@angular/core';
 import { CoreCourseModuleMainActivityPage } from '@features/course/classes/main-activity-page';
 import { CoreNavigator } from '@services/navigator';
 import { AddonModFolderIndexComponent } from '../../components/index/index';
@@ -26,7 +26,6 @@ import { CoreSharedModule } from '@/core/shared.module';
 @Component({
     selector: 'page-addon-mod-folder-index',
     templateUrl: 'index.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
         AddonModFolderIndexComponent,
@@ -35,7 +34,7 @@ import { CoreSharedModule } from '@/core/shared.module';
 export default class AddonModFolderIndexPage extends CoreCourseModuleMainActivityPage<AddonModFolderIndexComponent>
     implements OnInit {
 
-    @ViewChild(AddonModFolderIndexComponent) activityComponent?: AddonModFolderIndexComponent;
+    readonly activityComponent = viewChild.required(AddonModFolderIndexComponent);
 
     folderInstance?: AddonModFolderFolder;
     subfolder?: AddonModFolderFolderFormattedData;

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, OnDestroy, OnInit, viewChild } from '@angular/core';
 import { CoreEventObserver, CoreEvents } from '@singletons/events';
 import { CoreSites } from '@services/sites';
 import {
@@ -34,14 +34,13 @@ import { CoreSharedModule } from '@/core/shared.module';
     selector: 'page-addon-messages-contacts',
     templateUrl: 'contacts.html',
     styleUrl: '../../messages-common.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
 })
 export default class AddonMessagesContactsPage implements OnInit, OnDestroy {
 
-    @ViewChild(CoreSplitViewComponent) splitView!: CoreSplitViewComponent;
+    readonly splitView = viewChild.required(CoreSplitViewComponent);
 
     selected: 'confirmed' | 'requests' = 'confirmed';
     requestsBadge = '';
@@ -298,8 +297,9 @@ export default class AddonMessagesContactsPage implements OnInit, OnDestroy {
         this.selectedUserId = userId;
 
         const path = CoreNavigator.getRelativePathToParent('/messages/contacts') + `discussion/user/${userId}`;
+        const splitView = this.splitView();
         CoreNavigator.navigate(path, {
-            reset: CoreScreen.isTablet && !!this.splitView && !this.splitView.isNested,
+            reset: CoreScreen.isTablet && !!splitView && !splitView.isNested,
         });
     }
 

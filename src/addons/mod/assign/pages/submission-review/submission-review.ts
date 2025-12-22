@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject, viewChild } from '@angular/core';
 import { ActivatedRoute, ActivatedRouteSnapshot } from '@angular/router';
 import { CoreRoutedItemsManagerSourcesTracker } from '@classes/items-management/routed-items-manager-sources-tracker';
 import { CoreSwipeNavigationItemsManager } from '@classes/items-management/swipe-navigation-items-manager';
@@ -34,7 +34,6 @@ import { ADDON_MOD_ASSIGN_MODNAME, AddonModAssignListFilterName } from '../../co
 @Component({
     selector: 'page-addon-mod-assign-submission-review',
     templateUrl: 'submission-review.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
         AddonModAssignSubmissionComponent,
@@ -42,7 +41,7 @@ import { ADDON_MOD_ASSIGN_MODNAME, AddonModAssignListFilterName } from '../../co
 })
 export default class AddonModAssignSubmissionReviewPage implements OnInit, OnDestroy {
 
-    @ViewChild(AddonModAssignSubmissionComponent) submissionComponent?: AddonModAssignSubmissionComponent;
+    readonly submissionComponent = viewChild(AddonModAssignSubmissionComponent);
 
     title = ''; // Title to display.
     submissions?: AddonModAssignSubmissionSwipeItemsManager;
@@ -57,8 +56,9 @@ export default class AddonModAssignSubmissionReviewPage implements OnInit, OnDes
     protected blindMarking = false; // Whether it uses blind marking.
     protected forceLeave = false; // To allow leaving the page without checking for changes.
     protected logView: () => void;
+    protected route = inject(ActivatedRoute);
 
-    constructor(protected route: ActivatedRoute) {
+    constructor() {
         this.logView = CoreTime.once(() => {
             if (!this.assign) {
                 return;
@@ -84,12 +84,12 @@ export default class AddonModAssignSubmissionReviewPage implements OnInit, OnDes
      * @inheritdoc
      */
     ngOnInit(): void {
-        this.route.queryParams.subscribe((params) => {
+        this.route.queryParams.subscribe((queryParams) => {
             try {
                 this.moduleId = CoreNavigator.getRequiredRouteNumberParam('cmId');
                 this.courseId = CoreNavigator.getRequiredRouteNumberParam('courseId');
                 this.submitId = CoreNavigator.getRouteNumberParam('submitId') || 0;
-                this.blindId = CoreNavigator.getRouteNumberParam('blindId', { params });
+                this.blindId = CoreNavigator.getRouteNumberParam('blindId', { queryParams });
                 const groupId = CoreNavigator.getRequiredRouteNumberParam('groupId');
                 const selectedStatus = CoreNavigator.getRouteParam<AddonModAssignListFilterName>('selectedStatus');
                 const submissionsSource = CoreRoutedItemsManagerSourcesTracker.getOrCreateSource(
@@ -174,7 +174,7 @@ export default class AddonModAssignSubmissionReviewPage implements OnInit, OnDes
         try {
             await Promise.all(promises);
         } finally {
-            this.submissionComponent && this.submissionComponent.invalidateAndRefresh(true);
+            this.submissionComponent()?.invalidateAndRefresh(true);
 
             await this.fetchSubmission();
         }

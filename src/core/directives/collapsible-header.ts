@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Directive, ElementRef, Input, OnChanges, OnDestroy, OnInit, SimpleChange } from '@angular/core';
+import { Directive, ElementRef, Input, OnChanges, OnDestroy, OnInit, SimpleChange, inject } from '@angular/core';
 import { CoreCancellablePromise } from '@classes/cancellable-promise';
 import { CorePromisedValue } from '@classes/promised-value';
 import { CoreLoadingComponent } from '@components/loading/loading';
@@ -29,6 +29,7 @@ import { CoreFormatTextDirective } from './format-text';
 import { CoreWait } from '@singletons/wait';
 import { toBoolean } from '../transforms/boolean';
 import { AsyncDirective } from '@classes/async-directive';
+import { CoreSplitViewComponent } from '@components/split-view/split-view';
 
 declare module '@singletons/events' {
 
@@ -73,14 +74,13 @@ export const COLLAPSIBLE_HEADER_UPDATED = 'collapsible_header_updated';
  */
 @Directive({
     selector: 'ion-header[collapsible]',
-    standalone: true,
 })
 export class CoreCollapsibleHeaderDirective implements OnInit, OnChanges, OnDestroy, AsyncDirective {
 
     @Input({ transform: toBoolean }) collapsible = true;
 
     protected page?: HTMLElement;
-    protected collapsedHeader: HTMLIonHeaderElement;
+    protected collapsedHeader: HTMLIonHeaderElement = inject(ElementRef).nativeElement;
     protected collapsedFontStyles?: Partial<CSSStyleDeclaration>;
     protected expandedHeader?: HTMLIonItemElement;
     protected expandedHeaderHeight?: number;
@@ -88,6 +88,7 @@ export class CoreCollapsibleHeaderDirective implements OnInit, OnChanges, OnDest
     protected content?: HTMLIonContentElement;
     protected contentScrollListener?: EventListener;
     protected endContentScrollListener?: EventListener;
+    protected hasSplitView?: boolean;
     protected pageDidEnterListener?: EventListener;
     protected resizeListener?: CoreEventObserver;
     protected floatingTitle?: HTMLHeadingElement;
@@ -101,8 +102,7 @@ export class CoreCollapsibleHeaderDirective implements OnInit, OnChanges, OnDest
     protected visiblePromise?: CoreCancellablePromise<void>;
     protected onReadyPromise = new CorePromisedValue<void>();
 
-    constructor(el: ElementRef) {
-        this.collapsedHeader = el.nativeElement;
+    constructor() {
         CoreDirectivesRegistry.register(this.collapsedHeader, this);
     }
 
@@ -206,6 +206,7 @@ export class CoreCollapsibleHeaderDirective implements OnInit, OnChanges, OnDest
     protected listenEvents(): void {
         this.resizeListener = CoreDom.onWindowResize(() => {
             this.initializeFloatingTitle();
+            this.calculateContentWidth();
         }, 50);
 
         this.subscriptions.push(CoreSettingsHelper.onDarkModeChange().subscribe(() => {
@@ -330,6 +331,18 @@ export class CoreCollapsibleHeaderDirective implements OnInit, OnChanges, OnDest
         }
 
         this.trackContentScroll(content as HTMLIonContentElement);
+        this.calculateContentWidth();
+    }
+
+    /**
+     * Calculates the width of the content and stores it in a CSS variable.
+     */
+    protected async calculateContentWidth(): Promise<void> {
+        if (this.content && this.hasSplitView) {
+            this.page?.style.setProperty('--collapsible-header-content-width', `${this.content.offsetWidth}px`);
+        } else {
+            this.page?.style.removeProperty('--collapsible-header-content-width');
+        }
     }
 
     /**
@@ -516,6 +529,10 @@ export class CoreCollapsibleHeaderDirective implements OnInit, OnChanges, OnDest
         }
 
         this.content = content;
+
+        const splitViewEl = this.content.closest('core-split-view');
+        const splitView = splitViewEl ? CoreDirectivesRegistry.resolve(splitViewEl, CoreSplitViewComponent) : null;
+        this.hasSplitView = !!splitView?.outletActivated;
 
         const page = this.page;
         const expandedHeader = this.expandedHeader;

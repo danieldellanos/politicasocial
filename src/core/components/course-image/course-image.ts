@@ -13,7 +13,7 @@
 // limitations under the License.
 
 import { toBoolean } from '@/core/transforms/boolean';
-import { Component, ElementRef, HostBinding, input, effect } from '@angular/core';
+import { Component, ElementRef, input, effect, inject } from '@angular/core';
 import { CoreCourseListItem } from '@features/courses/services/courses';
 import { CoreCoursesHelper } from '@features/courses/services/courses-helper';
 import { CoreColors } from '@singletons/colors';
@@ -25,7 +25,6 @@ import { CoreFaIconDirective } from '@directives/fa-icon';
     selector: 'core-course-image',
     templateUrl: 'course-image.html',
     styleUrl: './course-image.scss',
-    standalone: true,
     imports: [
         CoreBaseModule,
         CoreFaIconDirective,
@@ -34,22 +33,15 @@ import { CoreFaIconDirective } from '@directives/fa-icon';
 })
 export class CoreCourseImageComponent {
 
-    course = input.required<CoreCourseListItem>();
-    fill = input(false, { transform: toBoolean });
+    readonly course = input.required<CoreCourseListItem>();
+    readonly fill = input(false, { transform: toBoolean });
 
-    protected element: HTMLElement;
+    protected element: HTMLElement = inject(ElementRef).nativeElement;
 
-    constructor(element: ElementRef) {
-        this.element = element.nativeElement;
-
+    constructor() {
         effect(() => {
             this.setCourseColor();
         });
-    }
-
-    @HostBinding('class.fill-container')
-    get fillContainer(): boolean {
-        return this.fill();
     }
 
     /**
@@ -68,15 +60,33 @@ export class CoreCourseImageComponent {
     protected async setCourseColor(): Promise<void> {
         const course = this.course();
 
-        await CoreCoursesHelper.loadCourseColorAndImage(course);
+        // Moodle 4.1 downwards geopatterns are embedded in b64 in only some WS, remove them to keep it coherent.
+        if (course.courseimage?.startsWith('data')) {
+            course.courseimage = undefined;
+        }
 
-        if (course.color) {
-            this.element.style.setProperty('--course-color', course.color);
+        if (course.courseimage !== undefined) {
+            return;
+        }
 
-            const tint = CoreColors.lighter(course.color, 50);
+        if (course.overviewfiles && course.overviewfiles[0]) {
+            course.courseimage = course.overviewfiles[0].fileurl;
+
+            return;
+        }
+
+        // If no image, set the color.
+        const colors = await CoreCoursesHelper.getCourseSiteColors();
+        const colorNumber = course.id % 10;
+        const color = colors.length ? colors[colorNumber] : undefined;
+
+        if (color) {
+            this.element.style.setProperty('--course-color', color);
+
+            const tint = CoreColors.lighter(color, 50);
             this.element.style.setProperty('--course-color-tint', tint);
-        } else if (course.colorNumber !== undefined) {
-            this.element.classList.add(`course-color-${course.colorNumber}`);
+        } else {
+            this.element.classList.add(`course-color-${colorNumber}`);
         }
     }
 

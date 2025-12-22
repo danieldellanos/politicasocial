@@ -13,20 +13,19 @@
 // limitations under the License.
 
 import { DownloadStatus } from '@/core/constants';
-import { Component, ElementRef, HostBinding, Input, OnChanges, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, Input, OnChanges, OnDestroy, OnInit, inject } from '@angular/core';
 import {
     CoreCourseDownloadStatusHelper,
     CoreEventCourseStatusChanged,
 } from '@features/course/services/course-download-status-helper';
 import { CoreCourseHelper, CorePrefetchStatusInfo } from '@features/course/services/course-helper';
-import { CoreUser } from '@features/user/services/user';
+import { CoreUserPreferences } from '@features/user/services/user-preferences';
 import { CoreNavigator } from '@services/navigator';
 import { CoreSites } from '@services/sites';
 import { Translate } from '@singletons';
-import { CoreColors } from '@singletons/colors';
 import { CoreEventObserver, CoreEvents } from '@singletons/events';
 import { CoreCourseListItem, CoreCourses } from '../../services/courses';
-import { CoreCoursesHelper, CoreEnrolledCourseDataWithExtraInfoAndOptions } from '../../services/courses-helper';
+import { CoreEnrolledCourseDataWithExtraInfoAndOptions } from '../../services/courses-helper';
 import { CoreEnrolHelper } from '@features/enrol/services/enrol-helper';
 import { CoreDownloadStatusTranslatable } from '@components/download-refresh/download-refresh';
 import { toBoolean } from '@/core/transforms/boolean';
@@ -46,6 +45,7 @@ import {
 import { CoreAlerts } from '@services/overlays/alerts';
 import { CoreErrorHelper } from '@services/error-helper';
 import { CoreSharedModule } from '@/core/shared.module';
+import { CoreEnrolInfoIcon } from '@features/enrol/services/enrol-delegate';
 
 /**
  * This directive is meant to display an item for a list of courses.
@@ -58,10 +58,13 @@ import { CoreSharedModule } from '@/core/shared.module';
     selector: 'core-courses-course-list-item',
     templateUrl: 'core-courses-course-list-item.html',
     styleUrl: 'course-list-item.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
+    host: {
+        '[attr.data-course-id]': 'course.id',
+        '[attr.data-category-id]': 'course.categoryid',
+    },
 })
 export class CoreCoursesCourseListItemComponent implements OnInit, OnDestroy, OnChanges {
 
@@ -69,7 +72,7 @@ export class CoreCoursesCourseListItemComponent implements OnInit, OnDestroy, On
     @Input({ transform: toBoolean }) showDownload = false; // If true, will show download button.
     @Input() layout: 'listwithenrol'|'summarycard'|'list'|'card' = 'listwithenrol';
 
-    enrolmentIcons: CoreCoursesEnrolmentIcons[] = [];
+    enrolmentIcons: CoreEnrolInfoIcon[] = [];
     isEnrolled = false;
     prefetchCourseData: CorePrefetchStatusInfo = {
         icon: '',
@@ -93,15 +96,10 @@ export class CoreCoursesCourseListItemComponent implements OnInit, OnDestroy, On
     protected isDestroyed = false;
     protected courseStatusObserver?: CoreEventObserver;
 
-    protected element: HTMLElement;
+    protected element: HTMLElement = inject(ElementRef).nativeElement;
     protected progressObserver: CoreEventObserver;
 
-    @HostBinding('attr.data-course-id') protected get courseId(): number {
-        return this.course.id;
-    }
-
-    constructor(element: ElementRef) {
-        this.element = element.nativeElement;
+    constructor() {
         const siteId = CoreSites.getCurrentSiteId();
         this.progressObserver = CoreEvents.on(CORE_COURSE_PROGRESS_UPDATED_EVENT, (data) => {
             if (!this.course || this.course.id !== data.courseId || !('progress' in this.course)) {
@@ -117,8 +115,6 @@ export class CoreCoursesCourseListItemComponent implements OnInit, OnDestroy, On
      * @inheritdoc
      */
     async ngOnInit(): Promise<void> {
-        this.setCourseColor();
-
         // Assume is enroled if mode is not listwithenrol.
         this.isEnrolled = this.layout !== 'listwithenrol' || this.course.progress !== undefined;
 
@@ -143,32 +139,6 @@ export class CoreCoursesCourseListItemComponent implements OnInit, OnDestroy, On
 
         } else if ('enrollmentmethods' in this.course) {
             this.enrolmentIcons = await CoreEnrolHelper.getEnrolmentIcons(this.course.enrollmentmethods, this.course.id);
-        }
-    }
-
-    /**
-     * Removes the course image set because it cannot be loaded and set the fallback icon color.
-     */
-    loadFallbackCourseIcon(): void {
-        this.course.courseimage = undefined;
-
-        // Set the color because it won't be set at this point.
-        this.setCourseColor();
-    }
-
-    /**
-     * Set course color.
-     */
-    protected async setCourseColor(): Promise<void> {
-        await CoreCoursesHelper.loadCourseColorAndImage(this.course);
-
-        if (this.course.color) {
-            this.element.style.setProperty('--course-color', this.course.color);
-
-            const tint = CoreColors.lighter(this.course.color, 50);
-            this.element.style.setProperty('--course-color-tint', tint);
-        } else if(this.course.colorNumber !== undefined) {
-            this.element.classList.add(`course-color-${this.course.colorNumber}`);
         }
     }
 
@@ -368,7 +338,7 @@ export class CoreCoursesCourseListItemComponent implements OnInit, OnDestroy, On
 
         // We should use null to unset the preference.
         try {
-            await CoreUser.updateUserPreference(
+            await CoreUserPreferences.setPreferenceOnline(
                 `block_myoverview_hidden_course_${this.course.id}`,
                 hide ? '1' : undefined,
             );

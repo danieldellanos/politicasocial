@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AfterViewInit, Component, OnDestroy, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, OnDestroy, inject, viewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { CoreRoutedItemsManagerSourcesTracker } from '@classes/items-management/routed-items-manager-sources-tracker';
 import { CoreListItemsManager } from '@classes/items-management/list-items-manager';
@@ -35,22 +35,22 @@ import { CoreSharedModule } from '@/core/shared.module';
 @Component({
     selector: 'page-addon-mod-feedback-attempts',
     templateUrl: 'attempts.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
 })
 export default class AddonModFeedbackAttemptsPage implements AfterViewInit, OnDestroy {
 
-    @ViewChild(CoreSplitViewComponent) splitView!: CoreSplitViewComponent;
+    readonly splitView = viewChild.required(CoreSplitViewComponent);
 
     promisedAttempts: CorePromisedValue<AddonModFeedbackAttemptsManager>;
     fetchFailed = false;
     courseId?: number;
 
     protected logView: () => void;
+    protected route = inject(ActivatedRoute);
 
-    constructor(protected route: ActivatedRoute) {
+    constructor() {
         this.promisedAttempts = new CorePromisedValue();
 
         this.logView = CoreTime.once(() => {
@@ -64,7 +64,7 @@ export default class AddonModFeedbackAttemptsPage implements AfterViewInit, OnDe
                 ws: 'mod_feedback_get_responses_analysis',
                 name: source.feedback.name,
                 data: { feedbackid: source.feedback.id, category: 'feedback' },
-                url: `/mod/feedback/show_entries.php?id=${source.CM_ID}`,
+                url: `/mod/feedback/show_entries.php?id=${source.cmId}`,
             });
         });
     }
@@ -143,7 +143,7 @@ export default class AddonModFeedbackAttemptsPage implements AfterViewInit, OnDe
             CoreAlerts.showError(error, { default: Translate.instant('core.course.errorgetmodule') });
         }
 
-        await attempts.start(this.splitView);
+        await attempts.start(this.splitView());
     }
 
     /**

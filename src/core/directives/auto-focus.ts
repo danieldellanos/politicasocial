@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Directive, Input, ElementRef, AfterViewInit } from '@angular/core';
+import { Directive, ElementRef, AfterViewInit, inject, input } from '@angular/core';
 
 import { CoreDom } from '@singletons/dom';
 import { CoreWait } from '@singletons/wait';
@@ -28,27 +28,23 @@ import { toBoolean } from '../transforms/boolean';
  */
 @Directive({
     selector: '[core-auto-focus]',
-    standalone: true,
 })
 export class CoreAutoFocusDirective implements AfterViewInit {
 
-    @Input({ alias: 'core-auto-focus', transform: toBoolean }) autoFocus = true;
+    readonly autoFocus = input(true, { alias: 'core-auto-focus', transform: toBoolean });
 
-    protected element: HTMLIonInputElement | HTMLIonTextareaElement | HTMLIonSearchbarElement | HTMLElement;
-
-    constructor(element: ElementRef) {
-        this.element = element.nativeElement;
-    }
+    protected element: HTMLIonInputElement | HTMLIonTextareaElement | HTMLIonSearchbarElement | HTMLElement
+        = inject(ElementRef).nativeElement;
 
     /**
      * @inheritdoc
      */
     async ngAfterViewInit(): Promise<void> {
-        if (!this.autoFocus) {
+        if (!this.autoFocus()) {
             return;
         }
 
-        await CoreDom.waitToBeInDOM(this.element);
+        await CoreDom.waitToBeInDOM(this.element as HTMLElement);
 
         // Wait in case there is an animation to enter the page, otherwise the interaction
         // between the keyboard appearing and the animation causes a visual glitch.

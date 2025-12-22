@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnDestroy, AfterViewInit, ViewChild } from '@angular/core';
+import { Component, OnDestroy, AfterViewInit, viewChild } from '@angular/core';
 import { CoreListItemsManager } from '@classes/items-management/list-items-manager';
 import { CoreRoutedItemsManagerSourcesTracker } from '@classes/items-management/routed-items-manager-sources-tracker';
 import { CoreSplitViewComponent } from '@components/split-view/split-view';
@@ -47,14 +47,13 @@ import { CoreSharedModule } from '@/core/shared.module';
 @Component({
     selector: 'page-addon-mod-assign-submission-list',
     templateUrl: 'submission-list.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
 })
 export default class AddonModAssignSubmissionListPage implements AfterViewInit, OnDestroy {
 
-    @ViewChild(CoreSplitViewComponent) splitView!: CoreSplitViewComponent;
+    readonly splitView = viewChild.required(CoreSplitViewComponent);
 
     title = '';
     submissions!: CoreListItemsManager<AddonModAssignSubmissionForList, AddonModAssignSubmissionsSource>; // List of submissions
@@ -133,11 +132,11 @@ export default class AddonModAssignSubmissionListPage implements AfterViewInit, 
     }
 
     get moduleId(): number {
-        return this.submissions.getSource().MODULE_ID;
+        return this.submissions.getSource().moduleId;
     }
 
     get courseId(): number {
-        return this.submissions.getSource().COURSE_ID;
+        return this.submissions.getSource().courseId;
     }
 
     get groupId(): number {
@@ -152,7 +151,7 @@ export default class AddonModAssignSubmissionListPage implements AfterViewInit, 
      * @inheritdoc
      */
     ngAfterViewInit(): void {
-        const selectedStatus = this.submissions.getSource().SELECTED_STATUS;
+        const selectedStatus = this.submissions.getSource().selectedStatus;
         this.title = Translate.instant(
             selectedStatus
                 ? (
@@ -164,7 +163,7 @@ export default class AddonModAssignSubmissionListPage implements AfterViewInit, 
         );
 
         this.fetchAssignment(true).finally(() => {
-            this.submissions.start(this.splitView);
+            this.submissions.start(this.splitView());
         });
     }
 

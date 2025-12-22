@@ -48,7 +48,6 @@ import { CoreSharedModule } from '@/core/shared.module';
 @Component({
     selector: 'page-addon-competency-competency',
     templateUrl: 'competency.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
@@ -114,7 +113,7 @@ export default class AddonCompetencyCompetencyPage implements OnInit, OnDestroy 
             return;
         }
 
-        return source.COURSE_ID;
+        return source.courseId;
     }
 
     /**
@@ -180,8 +179,8 @@ export default class AddonCompetencyCompetencyPage implements OnInit, OnDestroy 
 
         await CorePromiseUtils.ignoreErrors(
             source instanceof AddonCompetencyPlanCompetenciesSource
-                ? AddonCompetency.invalidateCompetencyInPlan(source.PLAN_ID, this.requireCompetencyId())
-                : AddonCompetency.invalidateCompetencyInCourse(source.COURSE_ID, this.requireCompetencyId(), source.USER_ID),
+                ? AddonCompetency.invalidateCompetencyInPlan(source.planId, this.requireCompetencyId())
+                : AddonCompetency.invalidateCompetencyInCourse(source.courseId, this.requireCompetencyId(), source.userId),
         );
 
         this.fetchCompetency().finally(() => {
@@ -228,7 +227,7 @@ export default class AddonCompetencyCompetencyPage implements OnInit, OnDestroy 
         source: AddonCompetencyPlanCompetenciesSource,
     ): Promise<AddonCompetencyDataForUserCompetencySummaryWSResponse> {
         const competency = await AddonCompetency.getCompetencyInPlan(
-            source.PLAN_ID,
+            source.planId,
             this.requireCompetencyId(),
         );
 
@@ -257,15 +256,15 @@ export default class AddonCompetencyCompetencyPage implements OnInit, OnDestroy 
         source: AddonCompetencyCourseCompetenciesSource,
     ): Promise<AddonCompetencyDataForUserCompetencySummaryWSResponse> {
         const competency = await AddonCompetency.getCompetencyInCourse(
-            source.COURSE_ID,
+            source.courseId,
             this.requireCompetencyId(),
-            source.USER_ID,
+            source.userId,
         );
 
         this.coursemodules = competency.coursemodules;
 
         this.contextLevel = ContextLevel.COURSE;
-        this.contextInstanceId = source.COURSE_ID;
+        this.contextInstanceId = source.courseId;
         this.userCompetency = competency.usercompetencysummary.usercompetencycourse
             || competency.usercompetencysummary.usercompetency;
 
@@ -291,7 +290,7 @@ export default class AddonCompetencyCompetencyPage implements OnInit, OnDestroy 
             }
 
             await CorePromiseUtils.ignoreErrors(
-                AddonCompetency.logCompetencyInPlanView(source.PLAN_ID, compId, this.planStatus, name, userId),
+                AddonCompetency.logCompetencyInPlanView(source.planId, compId, this.planStatus, name, userId),
             );
 
             const wsName = this.planStatus === AddonCompetencyLearningPlanStatus.COMPLETE
@@ -305,12 +304,12 @@ export default class AddonCompetencyCompetencyPage implements OnInit, OnDestroy 
                 data: {
                     id: compId,
                     category: 'competency',
-                    planid: source.PLAN_ID,
+                    planid: source.planId,
                     planstatus: this.planStatus,
                     userid: userId,
                 },
                 url: CoreUrl.addParamsToUrl('/admin/tool/lp/user_competency_in_plan.php', {
-                    planid: source.PLAN_ID,
+                    planid: source.planId,
                     userid: userId,
                     competencyid: compId,
                 }),
@@ -320,7 +319,7 @@ export default class AddonCompetencyCompetencyPage implements OnInit, OnDestroy 
         }
 
         await CorePromiseUtils.ignoreErrors(
-            AddonCompetency.logCompetencyInCourseView(source.COURSE_ID, compId, name, source.USER_ID),
+            AddonCompetency.logCompetencyInCourseView(source.courseId, compId, name, source.userId),
         );
 
         CoreAnalytics.logEvent({
@@ -330,11 +329,11 @@ export default class AddonCompetencyCompetencyPage implements OnInit, OnDestroy 
             data: {
                 id: compId,
                 category: 'competency',
-                courseid: source.COURSE_ID,
+                courseid: source.courseId,
                 userid: userId,
             },
             url: CoreUrl.addParamsToUrl('/admin/tool/lp/user_competency_in_course.php', {
-                courseid: source.COURSE_ID,
+                courseid: source.courseId,
                 competencyid: compId,
                 userid: userId,
             }),

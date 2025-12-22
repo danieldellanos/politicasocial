@@ -13,8 +13,7 @@
 // limitations under the License.
 
 import { toBoolean } from '@/core/transforms/boolean';
-import { Component, Input } from '@angular/core';
-import { CoreAnimations } from '@components/animations';
+import { Component, input } from '@angular/core';
 import { CoreBaseModule } from '@/core/base.module';
 
 /**
@@ -29,13 +28,11 @@ import { CoreBaseModule } from '@/core/base.module';
     selector: 'core-button-with-spinner',
     templateUrl: 'core-button-with-spinner.html',
     styleUrl: 'button-with-spinner.scss',
-    animations: [CoreAnimations.SHOW_HIDE],
-    standalone: true,
     imports: [CoreBaseModule],
 })
 export class CoreButtonWithSpinnerComponent {
 
-    @Input({ transform: toBoolean }) loading = true;
-    @Input() loadingLabel = 'core.loading';
+    readonly loading = input(true, { transform: toBoolean });
+    readonly loadingLabel = input('core.loading');
 
 }

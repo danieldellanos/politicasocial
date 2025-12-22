@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, ViewChild, OnInit, OnDestroy, forwardRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, forwardRef, ChangeDetectorRef, inject, viewChild, HostBinding } from '@angular/core';
 import { IonContent } from '@ionic/angular';
 
 import { CoreUtils } from '@singletons/utils';
@@ -37,7 +37,7 @@ import {
 } from '@singletons/events';
 import { CoreNavigator } from '@services/navigator';
 import { CoreRefreshContext, CORE_REFRESH_CONTEXT } from '@/core/utils/refresh-context';
-import { CoreCoursesHelper } from '@features/courses/services/courses-helper';
+import { CoreCourseCompletion } from '@features/course/services/course-completion';
 import { CoreSites } from '@services/sites';
 import { CoreWait } from '@singletons/wait';
 import {
@@ -58,10 +58,9 @@ import { CoreSharedModule } from '@/core/shared.module';
     selector: 'page-core-course-contents',
     templateUrl: 'contents.html',
     providers: [{
-        provide: CORE_REFRESH_CONTEXT,
-        useExisting: forwardRef(() => CoreCourseContentsPage),
-    }],
-    standalone: true,
+            provide: CORE_REFRESH_CONTEXT,
+            useExisting: forwardRef(() => CoreCourseContentsPage),
+        }],
     imports: [
         CoreSharedModule,
         CoreCourseFormatComponent,
@@ -69,8 +68,8 @@ import { CoreSharedModule } from '@/core/shared.module';
 })
 export default class CoreCourseContentsPage implements OnInit, OnDestroy, CoreRefreshContext {
 
-    @ViewChild(IonContent) content?: IonContent;
-    @ViewChild(CoreCourseFormatComponent) formatComponent?: CoreCourseFormatComponent;
+    readonly content = viewChild.required(IonContent);
+    readonly formatComponent = viewChild(CoreCourseFormatComponent);
 
     course!: CoreCourseAnyCourseData;
     sections?: CoreCourseSection[];
@@ -92,8 +91,15 @@ export default class CoreCourseContentsPage implements OnInit, OnDestroy, CoreRe
     protected isDestroyed = false;
     protected modulesHaveCompletion = false;
     protected debouncedUpdateCachedCompletion?: () => void; // Update the cached completion after a certain time.
+    protected changeDetectorRef = inject(ChangeDetectorRef);
 
-    constructor(protected changeDetectorRef: ChangeDetectorRef) {}
+    @HostBinding('attr.data-course-id') protected get courseId(): number | null {
+        return this.course?.id ?? null;
+    }
+
+    @HostBinding('attr.data-category-id') protected get courseCategoryId(): number | null {
+        return this.course?.categoryid ?? null;
+    }
 
     /**
      * @inheritdoc
@@ -240,7 +246,7 @@ export default class CoreCourseContentsPage implements OnInit, OnDestroy, CoreRe
         let completionStatus: Record<string, CoreCourseCompletionActivityStatus> = {};
 
         // Get the completion status.
-        if (CoreCoursesHelper.isCompletionEnabledInCourse(this.course)) {
+        if (CoreCourseCompletion.isCompletionEnabledInCourse(this.course)) {
             if (!modules) {
                 modules = CoreCourse.getSectionsModules(sections);
             }
@@ -286,7 +292,7 @@ export default class CoreCourseContentsPage implements OnInit, OnDestroy, CoreRe
     protected async loadCourseFormatOptions(): Promise<void> {
 
         // Load the course format options when course completion is enabled to show completion progress on sections.
-        if (!CoreCoursesHelper.isCompletionEnabledInCourse(this.course)) {
+        if (!CoreCourseCompletion.isCompletionEnabledInCourse(this.course)) {
             return;
         }
 
@@ -320,8 +326,9 @@ export default class CoreCourseContentsPage implements OnInit, OnDestroy, CoreRe
         } finally {
             // Do not call doRefresh on the format component if the refresher is defined in the format component
             // to prevent an infinite loop.
-            if (this.displayRefresher && this.formatComponent) {
-                await CorePromiseUtils.ignoreErrors(this.formatComponent.doRefresh(refresher));
+            const formatComponent = this.formatComponent();
+            if (this.displayRefresher && formatComponent) {
+                await CorePromiseUtils.ignoreErrors(formatComponent.doRefresh(refresher));
             }
 
             refresher?.complete();
@@ -407,7 +414,8 @@ export default class CoreCourseContentsPage implements OnInit, OnDestroy, CoreRe
      */
     protected async showLoadingAndRefresh(sync = false, invalidateData = true): Promise<void> {
         // Try to keep current scroll position.
-        const scrollElement = await CorePromiseUtils.ignoreErrors(this.content?.getScrollElement());
+        const content = this.content();
+        const scrollElement = await CorePromiseUtils.ignoreErrors(content?.getScrollElement());
         const scrollTop = scrollElement?.scrollTop ?? -1;
 
         this.updatingData = true;
@@ -420,14 +428,14 @@ export default class CoreCourseContentsPage implements OnInit, OnDestroy, CoreRe
 
             await this.loadData(true, sync);
 
-            await this.formatComponent?.doRefresh(undefined, undefined, true);
+            await this.formatComponent()?.doRefresh(undefined, undefined, true);
         } finally {
             this.updatingData = false;
             this.changeDetectorRef.detectChanges();
 
             if (scrollTop > 0) {
                 await CoreWait.nextTick();
-                this.content?.scrollToPoint(0, scrollTop, 0);
+                content?.scrollToPoint(0, scrollTop, 0);
             }
         }
     }
@@ -453,14 +461,14 @@ export default class CoreCourseContentsPage implements OnInit, OnDestroy, CoreRe
      * User entered the page.
      */
     ionViewDidEnter(): void {
-        this.formatComponent?.ionViewDidEnter();
+        this.formatComponent()?.ionViewDidEnter();
     }
 
     /**
      * User left the page.
      */
     ionViewDidLeave(): void {
-        this.formatComponent?.ionViewDidLeave();
+        this.formatComponent()?.ionViewDidLeave();
     }
 
 }

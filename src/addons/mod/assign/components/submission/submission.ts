@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, Input, OnInit, Optional, ViewChildren, QueryList, OnDestroy } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, inject, viewChildren } from '@angular/core';
 import { CoreEventObserver, CoreEvents } from '@singletons/events';
 import { CoreSites } from '@services/sites';
 import {
@@ -73,7 +73,6 @@ import { CoreUtils } from '@singletons/utils';
     selector: 'addon-mod-assign-submission',
     templateUrl: 'addon-mod-assign-submission.html',
     styleUrl: 'submission.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
         AddonModAssignSubmissionPluginComponent,
@@ -83,8 +82,7 @@ import { CoreUtils } from '@singletons/utils';
 })
 export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
 
-    @ViewChildren(AddonModAssignSubmissionPluginComponent) submissionComponents!:
-        QueryList<AddonModAssignSubmissionPluginComponent>;
+    readonly submissionComponents = viewChildren(AddonModAssignSubmissionPluginComponent);
 
     @Input({ required: true }) courseId!: number; // Course ID the submission belongs to.
     @Input({ required: true }) moduleId!: number; // Module ID the submission belongs to.
@@ -144,12 +142,11 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
     protected previousAttempt?: AddonModAssignSubmissionPreviousAttempt; // The previous attempt.
     protected submissionStatusAvailable = false; // Whether we were able to retrieve the submission status.
     protected syncObserver: CoreEventObserver;
+    protected splitviewCtrl = inject(CoreSplitViewComponent, { optional: true });
 
     protected hasOfflineGrade = false;
 
-    constructor(
-        @Optional() protected splitviewCtrl: CoreSplitViewComponent,
-    ) {
+    constructor() {
         this.siteId = CoreSites.getCurrentSiteId();
         this.currentUserId = CoreSites.getCurrentSiteUserId();
 
@@ -423,8 +420,9 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
         promises.push(CoreCourse.invalidateModule(this.moduleId));
 
         // Invalidate plugins.
-        if (this.submissionComponents && this.submissionComponents.length) {
-            this.submissionComponents.forEach((component) => {
+        const submissionComponents = this.submissionComponents();
+        if (submissionComponents && submissionComponents.length) {
+            submissionComponents.forEach((component) => {
                 promises.push(component.invalidate());
             });
         }
@@ -574,7 +572,7 @@ export class AddonModAssignSubmissionComponent implements OnInit, OnDestroy {
                 (submission.submissionstatement === undefined || submission.submissionstatement === null);
             this.editedOffline = submission && !this.removedOffline;
             this.submittedOffline = !!submission?.submitted && !this.removedOffline;
-        } catch (error) {
+        } catch {
             // No offline data found.
             this.editedOffline = false;
             this.submittedOffline = false;

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject, signal } from '@angular/core';
 import { CorePromiseUtils } from '@singletons/promise-utils';
 import { CoreNavigator } from '@services/navigator';
 import { ActivatedRoute } from '@angular/router';
@@ -28,21 +28,20 @@ import { CoreSharedModule } from '@/core/shared.module';
 @Component({
     selector: 'page-addon-badges-badge-class',
     templateUrl: 'badge-class.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
 })
 export default class AddonBadgesBadgeClassPage implements OnInit {
 
+    protected route = inject(ActivatedRoute);
     protected badgeId = 0;
     protected logView: (badge: AddonBadgesBadgeClass) => void;
 
-    badge?: AddonBadgesBadgeClass;
-    badgeLoaded = false;
-    currentTime = 0;
+    readonly badge = signal<AddonBadgesBadgeClass | undefined>(undefined);
+    readonly loaded = signal(false);
 
-    constructor(protected route: ActivatedRoute) {
+    constructor() {
         this.badgeId = CoreNavigator.getRequiredRouteNumberParam('badgeId');
 
         this.logView = CoreTime.once((badge) => {
@@ -59,22 +58,20 @@ export default class AddonBadgesBadgeClassPage implements OnInit {
     /**
      * @inheritdoc
      */
-    ngOnInit(): void {
-        this.fetchBadgeClass().finally(() => {
-            this.badgeLoaded = true;
-        });
+    async ngOnInit(): Promise<void> {
+        await this.fetchBadgeClass();
+
+        this.loaded.set(true);
     }
 
     /**
      * Fetch the badge class required for the view.
-     *
-     * @returns Promise resolved when done.
      */
     async fetchBadgeClass(): Promise<void> {
         try {
-            this.badge = await AddonBadges.getBadgeClass(this.badgeId);
-
-            this.logView(this.badge);
+            const badge = await AddonBadges.getBadgeClass(this.badgeId);
+            this.badge.set(badge);
+            this.logView(badge);
         } catch (message) {
             CoreAlerts.showError(message, { default: 'Error getting badge data.' });
         }

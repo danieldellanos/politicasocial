@@ -17,7 +17,6 @@ import { CoreSiteBasicInfo, CoreSites } from '@services/sites';
 import { CoreAccountsList, CoreLoginHelper } from '@features/login/services/login-helper';
 import { CoreNavigator } from '@services/navigator';
 import { CoreFilter } from '@features/filter/services/filter';
-import { CoreAnimations } from '@components/animations';
 import { CoreLoadings } from '@services/overlays/loadings';
 import { CoreAlerts } from '@services/overlays/alerts';
 import { Translate } from '@singletons';
@@ -29,8 +28,6 @@ import { CoreSharedModule } from '@/core/shared.module';
 @Component({
     selector: 'page-core-login-sites',
     templateUrl: 'sites.html',
-    animations: [CoreAnimations.SLIDE_IN_OUT, CoreAnimations.SHOW_HIDE],
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
@@ -85,7 +82,7 @@ export default class CoreLoginSitesPage implements OnInit {
 
         try {
             await CoreAlerts.confirmDelete(Translate.instant('core.login.confirmdeletesite', { sitename: siteName }));
-        } catch (error) {
+        } catch {
             // User cancelled, stop.
             return;
         }

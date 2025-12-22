@@ -681,6 +681,11 @@ export class CoreSite extends CoreAuthenticatedSite {
             return url;
         }
 
+        if (CoreUrl.isTokenPluginFileUrl(url)) {
+            // Tokenpluginfile URLs authenticate the user using the access key, no need to use auto-login.
+            return url;
+        }
+
         if (this.lastAutoLogin > 0) {
             const timeBetweenRequests = await this.getAutoLoginMinTimeBetweenRequests();
 
@@ -712,7 +717,7 @@ export class CoreSite extends CoreAuthenticatedSite {
             this.lastAutoLogin = CoreTime.timestamp();
 
             return data.autologinurl + '?userid=' + userId + '&key=' + data.key + '&urltogo=' + encodeURIComponent(url);
-        } catch (error) {
+        } catch {
             // Couldn't get autologin key, return the same URL.
             return url;
         } finally {
@@ -893,6 +898,17 @@ export class CoreSite extends CoreAuthenticatedSite {
      */
     getLastAutoLoginTime(): number {
         return this.lastAutoLogin;
+    }
+
+    /**
+     * Given a URL, if it requires a referer, fix it to use a redirect script that will add the referer.
+     *
+     * @param url URL to fix.
+     * @returns Fixed URL or original URL if no need to fix it.
+     */
+    fixRefererForUrl(url: string): string {
+        // @todo: This function will be implemented in MOBILE-4924 once this functionality is supported in Moodle LMS.
+        return url;
     }
 
 }

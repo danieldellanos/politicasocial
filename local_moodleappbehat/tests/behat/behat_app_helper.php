@@ -189,10 +189,9 @@ class behat_app_helper extends behat_base {
     /**
      * Goes to the app page and then sets up some initial JavaScript so we can use it.
      *
-     * @param string $url App URL
      * @throws DriverException If the app fails to load properly
      */
-    protected function prepare_browser(array $options = []) {
+    protected function prepare_browser() {
         if ($this->evaluate_script('window.behat') && $this->runtime_js('hasInitialized()')) {
             // Already initialized.
             return;
@@ -238,7 +237,6 @@ class behat_app_helper extends behat_base {
         try {
             // Init Behat JavaScript runtime.
             $initoptions = json_encode([
-                'skipOnBoarding' => $options['skiponboarding'] ?? true,
                 'configOverrides' => $this->appconfig,
             ]);
 
@@ -332,10 +330,13 @@ class behat_app_helper extends behat_base {
         preg_match_all("/\\$\\{([^:}]+):([^}]+)\\}/", $text, $matches);
 
         foreach ($matches[0] as $index => $match) {
-            if ($matches[2][$index] == 'cmid') {
-                $coursemodule = $DB->get_record('course_modules', ['idnumber' => $matches[1][$index]]);
-                $text = str_replace($match, $coursemodule->id, $text);
+            $coursemodule = (array) $DB->get_record('course_modules', ['idnumber' => $matches[1][$index]]);
+            $property = $matches[2][$index] === 'cmid' ? 'id' : $matches[2][$index];
+            if (!isset($coursemodule[$property])) {
+                throw new DriverException("Property '$matches[2][$index]' not found in activity '$matches[1][$index]'.");
             }
+
+            $text = str_replace($match, $coursemodule[$property], $text);
         }
 
         return $text;
@@ -366,7 +367,7 @@ class behat_app_helper extends behat_base {
      * @return mixed Result.
      */
     protected function runtime_js(string $script) {
-        return $this->evaluate_script("window.behat ? window.behat.$script : 'ERROR - Behat API not loaded'");
+        return $this->evaluate_script("window.behat ? await window.behat.$script : 'ERROR - Behat API not loaded'");
     }
 
     /**

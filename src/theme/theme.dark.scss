@@ -6,6 +6,8 @@
  */
 
 @mixin dark-palette() {
+    color-scheme: dark;
+
     & {
         // Ionic shades, defined for ionic internal use.
         --ion-background-color-step-0:    var(--black);
@@ -60,6 +62,7 @@
         --ion-background-color-rgb: #{$background-color-dark-rgb};
 
         --text-color:               #{$text-color-dark};
+        --background-color:         #{$background-color-dark};
         --ion-text-color:           var(--text-color);
         --ion-text-color-rgb:       #{$text-color-dark-rgb};
         --subdued-text-color:       var(--medium);

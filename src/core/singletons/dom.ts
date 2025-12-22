@@ -1048,7 +1048,7 @@ export class CoreDom {
         if (elementToFocus.classList.contains('ion-focusable')) {
             const app = elementToFocus.closest('ion-app');
             if (app) {
-                app.setFocus([elementToFocus]);
+                app.setFocus([elementToFocus as HTMLElement]);
             }
 
             if (document.activeElement === elementToFocus) {
@@ -1077,7 +1077,7 @@ export class CoreDom {
 
             if (elementToFocus === document.activeElement || (isIonButton && element === document.activeElement)) {
                 await CoreWait.nextTick();
-                if (CorePlatform.isAndroid() && CoreDom.supportsInputKeyboard(elementToFocus)) {
+                if (CorePlatform.isAndroid() && CoreDom.supportsInputKeyboard(elementToFocus as HTMLElement)) {
                     // On some Android versions the keyboard doesn't open automatically.
                     CoreKeyboard.open();
                 }
@@ -1257,6 +1257,24 @@ export class CoreDom {
         const scrollTopPos = scrollElRect?.top || 0;
 
         return elementPoint > window.innerHeight || elementPoint < scrollTopPos;
+    }
+
+    /**
+     * Force a redraw of an element.
+     *
+     * @param element Element to redraw.
+     */
+    static async forceElementRedraw(element?: HTMLElement): Promise<void> {
+        if (!element) {
+            return;
+        }
+
+        const oldDisplay = element.style.display;
+        element.style.display = 'none';
+
+        await CoreWait.nextTick();
+
+        element.style.display = oldDisplay;
     }
 
 }

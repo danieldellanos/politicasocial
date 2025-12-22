@@ -37,7 +37,6 @@ import { map } from 'rxjs';
     selector: 'page-addon-mod-h5pactivity-users-attempts',
     templateUrl: 'users-attempts.html',
     styleUrl: 'users-attempts.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
@@ -52,7 +51,7 @@ export default class AddonModH5PActivityUsersAttemptsPage implements OnInit {
     totalAttempts?: number;
     fetchMoreUsersFailed = false;
     canLoadMore = false;
-    isTablet: Signal<boolean>;
+    readonly isTablet: Signal<boolean>;
 
     protected page = 0;
     protected logView: () => void;

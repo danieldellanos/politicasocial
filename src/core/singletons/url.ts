@@ -404,6 +404,16 @@ export class CoreUrl {
     }
 
     /**
+     * Check if a URL is a YouTube URL.
+     *
+     * @param url The URL to test.
+     * @returns Whether the URL is a YouTube URL.
+     */
+    static isYoutubeURL(url: string): boolean {
+        return url.match(/^(https?:\/\/|\/\/)?([^/]+\.)?(youtube\.com|youtu\.be|youtube-nocookie\.com|y2u.be)(\/.*)?$/i) !== null;
+    }
+
+    /**
      * Get the URL to use to play a Vimeo video if the URL supplied is a Vimeo video URL.
      * If it's a Vimeo video, the app will use the site's wsplayer script instead to make restricted videos work.
      *
@@ -597,7 +607,19 @@ export class CoreUrl {
         }
 
         urlAndHash[0].replace(regex, (match: string, key: string, value: string): string => {
-            params[key] = value !== undefined ? CoreUrl.decodeURIComponent(value) : '';
+            value = value !== undefined ? CoreUrl.decodeURIComponent(value) : '';
+            // If key is an array (e.g. param[]), we'll treat it as a normal param (param) but
+            // store the values as a comma separated list.
+            if (key.endsWith('[]')) {
+                key = key.slice(0, -2);
+                if (params[key] === undefined) {
+                    params[key] = value;
+                } else {
+                    params[key] += `,${value}`;
+                }
+            } else {
+                params[key] = value;
+            }
 
             if (subParams) {
                 params[key] = params[key].replace(subParamsPlaceholder, subParams);
@@ -730,7 +752,7 @@ export class CoreUrl {
             params.start = parseInt(match[1], 10).toString();
         } else {
             // No start param, but it could have a time param.
-            match = url.match(/[?&]t=(\d+h)?(\d+m)?(\d+s)?/);
+            match = url.match(/[?&]t=(\d+h)?(\d+m)?(\d+s?)?/);
             if (match) {
                 const start = (match[1] ? parseInt(match[1], 10) * 3600 : 0) +
                     (match[2] ? parseInt(match[2], 10) * 60 : 0) +

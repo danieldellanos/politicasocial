@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, effect, viewChild, signal, ElementRef, inject, computed } from '@angular/core';
 import { IonTabs } from '@ionic/angular';
 import { BackButtonEvent } from '@ionic/core';
 import { Subscription } from 'rxjs';
@@ -26,7 +26,6 @@ import { CoreAriaRoleTab, CoreAriaRoleTabFindable } from '@classes/aria-role-tab
 import { CoreNavigator } from '@services/navigator';
 import { filter } from 'rxjs/operators';
 import { NavigationEnd } from '@angular/router';
-import { trigger, state, style, transition, animate } from '@angular/animations';
 import { CoreSites } from '@services/sites';
 import { CoreDom } from '@singletons/dom';
 import { CoreLogger } from '@singletons/logger';
@@ -44,8 +43,7 @@ import {
 import { CoreSharedModule } from '@/core/shared.module';
 import { CoreMainMenuUserButtonComponent } from '../../components/user-menu-button/user-menu-button';
 import { BackButtonPriority } from '@/core/constants';
-
-const ANIMATION_DURATION = 500;
+import { CoreKeyboard } from '@singletons/keyboard';
 
 /**
  * Page that displays the main menu of the app.
@@ -53,28 +51,7 @@ const ANIMATION_DURATION = 500;
 @Component({
     selector: 'page-core-mainmenu',
     templateUrl: 'menu.html',
-    animations: [
-        trigger('menuVisibilityAnimation', [
-            state('hidden', style({
-                height: 0,
-                visibility: 'hidden',
-                transform: 'translateY(100%)',
-            })),
-            state('visible', style({
-                visibility: 'visible',
-            })),
-            transition('visible => hidden', [
-                style({ transform: 'translateY(0)' }),
-                animate(`${ANIMATION_DURATION}ms ease-in-out`, style({ transform: 'translateY(100%)' })),
-            ]),
-            transition('hidden => visible', [
-                style({ transform: 'translateY(100%)', visibility: 'visible', height: '*' }),
-                animate(`${ANIMATION_DURATION}ms ease-in-out`, style({ transform: 'translateY(0)' })),
-            ]),
-        ]),
-    ],
     styleUrl: 'menu.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreMainMenuUserButtonComponent,
@@ -82,16 +59,28 @@ const ANIMATION_DURATION = 500;
 })
 export default class CoreMainMenuPage implements OnInit, OnDestroy {
 
+    readonly tabsPlacement = signal<CoreMainMenuPlacement>(CoreMainMenuPlacement.BOTTOM);
+    readonly isMainScreen = signal(false);
+    readonly visibility = computed(() => {
+        const tabsPlacement = this.tabsPlacement();
+        const isMainScreen = this.isMainScreen();
+
+        const visibility = tabsPlacement === CoreMainMenuPlacement.SIDE
+            ? ''
+            : (isMainScreen ? 'visible' : 'hidden');
+
+        return visibility;
+    });
+
+    readonly hiddenAnimationFinished = signal(false);
+
     tabs: CoreMainMenuHandlerToDisplay[] = [];
     allHandlers?: CoreMainMenuHandlerToDisplay[];
-    loaded = false;
+    readonly loaded = signal(false);
     showTabs = false;
-    tabsPlacement: CoreMainMenuPlacement = CoreMainMenuPlacement.BOTTOM;
     morePageName = MAIN_MENU_MORE_PAGE_NAME;
     selectedTab?: string;
-    isMainScreen = false;
     moreBadge = false;
-    visibility = 'hidden';
     loadingTabsLength = this.getLoadingTabsLength();
 
     protected subscription?: Subscription;
@@ -104,7 +93,8 @@ export default class CoreMainMenuPage implements OnInit, OnDestroy {
     protected firstSelectedTab?: string;
     protected logger: CoreLogger;
 
-    @ViewChild('mainTabs') mainTabs?: IonTabs;
+    readonly mainTabs = viewChild.required<IonTabs>('mainTabs');
+    protected hostElement: HTMLElement = inject(ElementRef).nativeElement;
 
     tabAction: CoreMainMenuRoleTab;
 
@@ -117,9 +107,30 @@ export default class CoreMainMenuPage implements OnInit, OnDestroy {
         this.navSubscription = Router.events
             .pipe(filter(event => event instanceof NavigationEnd))
             .subscribe(() => {
-                this.isMainScreen = !this.mainTabs?.outlet.canGoBack();
-                this.updateVisibility();
+                this.isMainScreen.set(!this.mainTabs().outlet?.canGoBack());
             });
+
+        if (CorePlatform.isIOS()) {
+            effect(() => {
+                const shown = CoreKeyboard.keyboardShownSignal();
+                // In iOS, the resize event is triggered before the keyboard is opened/closed and not triggered again once done.
+                // Init handlers again once keyboard is closed since the resize event doesn't have the updated height.
+                if (!shown) {
+                    this.updateHandlers();
+
+                    // If the device is slow it can take a bit more to update the window height. Retry in a few ms.
+                    setTimeout(() => {
+                        this.updateHandlers();
+                    }, 250);
+                }
+            });
+        }
+
+        effect(() => {
+            this.visibility();
+            // Tabs changed visibility, reset hidden animation.
+            this.hiddenAnimationFinished.set(false);
+        });
     }
 
     /**
@@ -130,8 +141,7 @@ export default class CoreMainMenuPage implements OnInit, OnDestroy {
 
         this.initAfterLoginNavigations();
 
-        this.isMainScreen = !this.mainTabs?.outlet.canGoBack();
-        this.updateVisibility();
+        this.isMainScreen.set(!this.mainTabs().outlet?.canGoBack());
 
         this.subscription = CoreMainMenuDelegate.getHandlersObservable().subscribe((handlers) => {
             const previousHandlers = this.allHandlers;
@@ -151,21 +161,17 @@ export default class CoreMainMenuPage implements OnInit, OnDestroy {
         });
         document.addEventListener('ionBackButton', this.backButtonFunction);
 
-        if (CorePlatform.isIOS()) {
-            // In iOS, the resize event is triggered before the keyboard is opened/closed and not triggered again once done.
-            // Init handlers again once keyboard is closed since the resize event doesn't have the updated height.
-            this.keyboardObserver = CoreEvents.on(CoreEvents.KEYBOARD_CHANGE, (kbHeight: number) => {
-                if (kbHeight === 0) {
-                    this.updateHandlers();
-
-                    // If the device is slow it can take a bit more to update the window height. Retry in a few ms.
-                    setTimeout(() => {
-                        this.updateHandlers();
-                    }, 250);
-                }
-            });
-        }
         CoreEvents.trigger(CoreEvents.MAIN_HOME_LOADED);
+
+        const tabBar = this.hostElement.querySelector('ion-tab-bar');
+        tabBar?.addEventListener('animationend', (ev) => {
+            if (ev.animationName === 'slideOutBottom' &&
+                !this.isMainScreen() && this.tabsPlacement() === CoreMainMenuPlacement.BOTTOM) {
+                this.hiddenAnimationFinished.set(true);
+            }
+
+            CoreEvents.trigger(MAIN_MENU_VISIBILITY_UPDATED_EVENT);
+        });
     }
 
     /**
@@ -177,8 +183,8 @@ export default class CoreMainMenuPage implements OnInit, OnDestroy {
         if (!this.allHandlers) {
             return;
         }
-        this.tabsPlacement = CoreMainMenu.getTabPlacement();
-        this.updateVisibility();
+
+        this.tabsPlacement.set(CoreMainMenu.getTabPlacement());
 
         this.loadingTabsLength = this.getLoadingTabsLength();
 
@@ -217,9 +223,9 @@ export default class CoreMainMenuPage implements OnInit, OnDestroy {
         }
 
         const mainMenuTab = CoreNavigator.getCurrentMainMenuTab();
-        this.loaded = CoreMainMenuDelegate.areHandlersLoaded();
+        this.loaded.set(CoreMainMenuDelegate.areHandlersLoaded());
 
-        if (this.loaded && (!mainMenuTab || removedHandlersPages.includes(mainMenuTab))) {
+        if (this.loaded() && (!mainMenuTab || removedHandlersPages.includes(mainMenuTab))) {
             // No tab selected or handler no longer available, select the first one.
             await CoreWait.nextTick();
 
@@ -241,8 +247,9 @@ export default class CoreMainMenuPage implements OnInit, OnDestroy {
      * @returns The total number of loading tabs to display.
      */
     protected getLoadingTabsLength(): number {
-        return CoreMainMenu.getNumItems() +
-            (this.tabsPlacement === CoreMainMenuPlacement.BOTTOM ? 1 : 2); // +1 for the "More" tab and user button.
+        const isBottomPlacement = this.tabsPlacement() === CoreMainMenuPlacement.BOTTOM;
+
+        return CoreMainMenu.getNumItems() + (isBottomPlacement ? 1 : 2); // +1 for the "More" tab and user button.
     }
 
     /**
@@ -318,22 +325,6 @@ export default class CoreMainMenuPage implements OnInit, OnDestroy {
     }
 
     /**
-     * Update menu visibility.
-     */
-    protected updateVisibility(): void {
-        const visibility = this.tabsPlacement === CoreMainMenuPlacement.SIDE
-            ? ''
-            : (this.isMainScreen ? 'visible' : 'hidden');
-
-        if (visibility === this.visibility) {
-            return;
-        }
-
-        this.visibility = visibility;
-        this.notifyVisibilityUpdated();
-    }
-
-    /**
      * Back button clicked.
      *
      * @param event Event.
@@ -355,7 +346,7 @@ export default class CoreMainMenuPage implements OnInit, OnDestroy {
                 // Remove curent and previous tabs from history.
                 this.selectHistory = this.selectHistory.filter((tab) => this.selectedTab != tab && previousTab != tab);
 
-                this.mainTabs?.select(previousTab);
+                this.mainTabs()?.select(previousTab);
 
                 return;
             }
@@ -363,7 +354,7 @@ export default class CoreMainMenuPage implements OnInit, OnDestroy {
             if (this.firstSelectedTab && this.selectedTab != this.firstSelectedTab) {
                 // All history is gone but we are not in the first selected tab.
                 this.selectHistory = [];
-                this.mainTabs?.select(this.firstSelectedTab);
+                this.mainTabs()?.select(this.firstSelectedTab);
 
                 return;
             }
@@ -380,17 +371,6 @@ export default class CoreMainMenuPage implements OnInit, OnDestroy {
     protected async currentRouteIsMainMenuRoot(): Promise<boolean> {
         // Check if the current route is the root of the current main menu tab.
         return !!CoreNavigator.getCurrentRoute({ routeData: { mainMenuTabRoot: CoreNavigator.getCurrentMainMenuTab() } });
-    }
-
-    /**
-     * Notify that the menu visibility has been updated.
-     */
-    protected async notifyVisibilityUpdated(): Promise<void> {
-        await CoreWait.nextTick();
-        await CoreWait.wait(ANIMATION_DURATION);
-        await CoreWait.nextTick();
-
-        CoreEvents.trigger(MAIN_MENU_VISIBILITY_UPDATED_EVENT);
     }
 
 }
@@ -422,14 +402,14 @@ class CoreMainMenuRoleTab extends CoreAriaRoleTab<CoreMainMenuPage> {
      * @inheritdoc
      */
     isHorizontal(): boolean {
-        return this.componentInstance.tabsPlacement === CoreMainMenuPlacement.BOTTOM;
+        return this.componentInstance.tabsPlacement() === CoreMainMenuPlacement.BOTTOM;
     }
 
     /**
      * @inheritdoc
      */
     selectTab(tabId: string): void {
-        this.componentInstance.mainTabs?.select(tabId);
+        this.componentInstance.mainTabs()?.select(tabId);
     }
 
 }

@@ -30,7 +30,6 @@ import { CoreSharedModule } from '@/core/shared.module';
 @Component({
     selector: 'page-core-tag-index',
     templateUrl: 'index.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
@@ -200,8 +199,7 @@ export default class CoreTagIndexPage implements OnInit {
             nextPage: 1,
         };
 
-        const splitViewLoaded = CoreNavigator.isCurrentPathInTablet('**/tag/index/index-area');
-        const path = (splitViewLoaded ? '../' : '') + 'index-area';
+        const path = CoreNavigator.getRelativePathToParent('/tag/index/') + 'index-area';
 
         CoreNavigator.navigate(path, { params });
     }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnDestroy, OnInit, Input, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnDestroy, OnInit, Input, HostBinding } from '@angular/core';
 import { ActionSheetButton } from '@ionic/angular';
 import { CoreEventObserver, CoreEvents } from '@singletons/events';
 import { CoreSites } from '@services/sites';
@@ -30,9 +30,8 @@ import { CoreCourseHelper } from '@features/course/services/course-helper';
 import { ActionSheetController, ModalController, NgZone, Translate } from '@singletons';
 import { CoreNavigator } from '@services/navigator';
 import { CorePromiseUtils } from '@singletons/promise-utils';
-import { CoreCoursesHelper, CoreCourseWithImageAndColor } from '@features/courses/services/courses-helper';
+import { CoreCourseWithImageAndColor } from '@features/courses/services/courses-helper';
 import { Subscription } from 'rxjs';
-import { CoreColors } from '@singletons/colors';
 import { CorePath } from '@singletons/path';
 import { CorePlatform } from '@services/platform';
 import { CoreTime } from '@singletons/time';
@@ -52,7 +51,6 @@ import { CoreSharedModule } from '@/core/shared.module';
     selector: 'page-core-course-summary',
     templateUrl: 'course-summary.html',
     styleUrl: 'course-summary.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreRemindersDateComponent,
@@ -62,8 +60,6 @@ export default class CoreCourseSummaryPage implements OnInit, OnDestroy {
 
     @Input() course?: CoreCourseSummaryData;
     @Input() courseId = 0;
-
-    @ViewChild('courseThumb') courseThumb?: ElementRef;
 
     isEnrolled = false;
 
@@ -90,6 +86,14 @@ export default class CoreCourseSummaryPage implements OnInit, OnDestroy {
     protected appResumeSubscription: Subscription;
     protected waitingForBrowserEnrol = false;
     protected logView: () => void;
+
+    @HostBinding('attr.data-course-id') protected get currentCourseId(): number | null {
+        return this.course?.id ?? null;
+    }
+
+    @HostBinding('attr.data-category-id') protected get courseCategoryId(): number | null {
+        return this.course?.categoryid ?? null;
+    }
 
     constructor() {
         // Refresh the view when the app is resumed.
@@ -164,8 +168,6 @@ export default class CoreCourseSummaryPage implements OnInit, OnDestroy {
         } catch (error) {
             CoreAlerts.showError(error, { default: 'Error getting enrolment data' });
         }
-
-        await this.setCourseColor();
 
         if (!this.course ||
             !('progress' in this.course) ||
@@ -477,44 +479,6 @@ export default class CoreCourseSummaryPage implements OnInit, OnDestroy {
     openMenuItem(item: CoreCourseOptionsMenuHandlerToDisplay): void {
         const params = Object.assign({ course: this.course }, item.data.pageParams);
         CoreNavigator.navigateToSitePath(item.data.page, { params });
-    }
-
-    /**
-     * Removes the course image set because it cannot be loaded and set the fallback icon color.
-     */
-    loadFallbackCourseIcon(): void {
-        if (!this.course) {
-            return;
-        }
-
-        this.course.courseimage = undefined;
-
-        // Set the color because it won't be set at this point.
-        this.setCourseColor();
-    }
-
-    /**
-     * Set course color.
-     */
-    protected async setCourseColor(): Promise<void> {
-        if (!this.course) {
-            return;
-        }
-
-        await CoreCoursesHelper.loadCourseColorAndImage(this.course);
-
-        if (!this.courseThumb) {
-            return;
-        }
-
-        if (this.course.color) {
-            this.courseThumb.nativeElement.style.setProperty('--course-color', this.course.color);
-
-            const tint = CoreColors.lighter(this.course.color, 50);
-            this.courseThumb.nativeElement.style.setProperty('--course-color-tint', tint);
-        } else if(this.course.colorNumber !== undefined) {
-            this.courseThumb.nativeElement.classList.add(`course-color-${this.course.colorNumber}`);
-        }
     }
 
     /**

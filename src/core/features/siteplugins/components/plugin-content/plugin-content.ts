@@ -20,9 +20,9 @@ import {
     EventEmitter,
     DoCheck,
     KeyValueDiffers,
-    ViewChild,
     KeyValueDiffer,
-    HostBinding,
+    inject,
+    viewChild,
 } from '@angular/core';
 import { Subject } from 'rxjs';
 import { Md5 } from 'ts-md5';
@@ -46,18 +46,20 @@ import { ContextLevel } from '@/core/constants';
     selector: 'core-site-plugins-plugin-content',
     templateUrl: 'core-siteplugins-plugin-content.html',
     styles: [':host { display: contents; }'],
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreCompileHtmlComponent,
     ],
+    host: {
+        '[class]': 'component',
+    },
 })
 export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
 
     // Get the compile element. Don't set the right type to prevent circular dependencies.
-    @ViewChild('compile') compileComponent?: CoreCompileHtmlComponent;
+    readonly compileComponent = viewChild<CoreCompileHtmlComponent>('compile');
 
-    @HostBinding('class') @Input() component = '';
+    @Input() component = '';
     @Input({ required: true }) method!: string;
     @Input() args?: Record<string, unknown>;
     @Input() initResult?: CoreSitePluginsContent | null; // Result of the init WS call of the handler.
@@ -80,7 +82,9 @@ export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
 
     protected differ: KeyValueDiffer<unknown, unknown>; // To detect changes in the data input.
 
-    constructor(differs: KeyValueDiffers) {
+    constructor() {
+        const differs = inject(KeyValueDiffers);
+
         this.differ = differs.find([]).create();
     }
 
@@ -271,7 +275,7 @@ export class CoreSitePluginsPluginContentComponent implements OnInit, DoCheck {
      * @returns Result of the call. Undefined if no component instance or the function doesn't exist.
      */
     callComponentFunction(name: string, params?: unknown[]): unknown | undefined {
-        return this.compileComponent?.callComponentFunction(name, params);
+        return this.compileComponent()?.callComponentFunction(name, params);
     }
 
     /**

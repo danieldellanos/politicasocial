@@ -42,7 +42,6 @@ import { CoreAlerts } from '@services/overlays/alerts';
     selector: 'core-main-menu-user-menu',
     templateUrl: 'user-menu.html',
     styleUrl: 'user-menu.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreSiteLogoComponent,
@@ -114,8 +113,8 @@ export class CoreMainMenuUserMenuComponent implements OnInit, OnDestroy {
                     .map((handler) => handler.data);
 
                 // Only update handlers if they have changed, to prevent a blink effect.
-                if (newHandlers.length !== this.handlers.length ||
-                        JSON.stringify(newHandlers) !== JSON.stringify(this.handlers)) {
+                if (newHandlers.length !== this.accountHandlers.length ||
+                        JSON.stringify(newHandlers) !== JSON.stringify(this.accountHandlers)) {
                     this.accountHandlers = newHandlers;
                 }
 
@@ -193,7 +192,7 @@ export class CoreMainMenuUserMenuComponent implements OnInit, OnDestroy {
 
             try {
                 await CoreAlerts.confirmDelete(Translate.instant('core.login.confirmdeletesite', { sitename: siteName }));
-            } catch (error) {
+            } catch {
                 // User cancelled, stop.
                 return;
             }

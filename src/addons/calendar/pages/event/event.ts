@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import {
     AddonCalendar,
     AddonCalendarEventToDisplay,
@@ -26,7 +26,7 @@ import { CoreText } from '@singletons/text';
 import { CoreSites } from '@services/sites';
 import { CoreCourseModuleHelper } from '@features/course/services/course-module-helper';
 import { CoreTime } from '@singletons/time';
-import { DomSanitizer, NgZone, Translate } from '@singletons';
+import { DomSanitizer, Translate } from '@singletons';
 import { Subscription } from 'rxjs';
 import { CoreNavigator } from '@services/navigator';
 import { CorePromiseUtils } from '@singletons/promise-utils';
@@ -55,6 +55,7 @@ import {
 import { REMINDERS_DEFAULT_NOTIFICATION_TIME_CHANGED } from '@features/reminders/constants';
 import { CoreAlerts, CoreAlertsConfirmOptions } from '@services/overlays/alerts';
 import { CoreSharedModule } from '@/core/shared.module';
+import { CoreUserPreferences } from '@features/user/services/user-preferences';
 
 /**
  * Page that displays a single calendar event.
@@ -63,7 +64,6 @@ import { CoreSharedModule } from '@/core/shared.module';
     selector: 'page-addon-calendar-event',
     templateUrl: 'event.html',
     styleUrls: ['../../calendar-common.scss', 'event.scss'],
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
@@ -76,11 +76,11 @@ export default class AddonCalendarEventPage implements OnInit, OnDestroy {
     protected editEventObserver: CoreEventObserver;
     protected syncObserver: CoreEventObserver;
     protected manualSyncObserver: CoreEventObserver;
-    protected onlineObserver: Subscription;
     protected defaultTimeChangedObserver: CoreEventObserver;
     protected currentSiteId: string;
     protected updateCurrentTime?: number;
     protected appResumeSubscription: Subscription;
+    protected route = inject(ActivatedRoute);
 
     eventLoaded = false;
     event?: AddonCalendarEventToDisplay;
@@ -96,14 +96,12 @@ export default class AddonCalendarEventPage implements OnInit, OnDestroy {
     reminders: AddonCalendarEventReminder[] = [];
     canEdit = false;
     hasOffline = false;
-    isOnline = false;
+    readonly isOnline = CoreNetwork.onlineSignal;
     syncIcon = CoreConstants.ICON_LOADING; // Sync icon.
     canScheduleExactAlarms = true;
     scheduleExactWarningHidden = false;
 
-    constructor(
-        protected route: ActivatedRoute,
-    ) {
+    constructor() {
         this.remindersEnabled = CoreReminders.isEnabled();
         this.siteHomeId = CoreSites.getCurrentSiteHomeId();
         this.currentSiteId = CoreSites.getCurrentSiteId();
@@ -141,14 +139,6 @@ export default class AddonCalendarEventPage implements OnInit, OnDestroy {
             (data) => this.checkSyncResult(true, data),
             this.currentSiteId,
         );
-
-        // Refresh online status when changes.
-        this.onlineObserver = CoreNetwork.onChange().subscribe(() => {
-            // Execute the callback in the Angular zone, so change detection doesn't stop working.
-            NgZone.run(() => {
-                this.isOnline = CoreNetwork.isOnline();
-            });
-        });
 
         // Reload reminders if default notification time changes.
         this.defaultTimeChangedObserver = CoreEvents.on(REMINDERS_DEFAULT_NOTIFICATION_TIME_CHANGED, () => {
@@ -216,7 +206,6 @@ export default class AddonCalendarEventPage implements OnInit, OnDestroy {
      * @returns Promise resolved when done.
      */
     async fetchEvent(sync = false, showErrors = false): Promise<void> {
-        this.isOnline = CoreNetwork.isOnline();
 
         if (sync) {
             const deleted = await this.syncEvents(showErrors);
@@ -316,7 +305,7 @@ export default class AddonCalendarEventPage implements OnInit, OnDestroy {
             }));
 
             // Re-calculate the formatted time so it uses the device date.
-            promises.push(AddonCalendar.getCalendarTimeFormat().then(async (timeFormat) => {
+            promises.push(CoreUserPreferences.getTimeFormat().then(async (timeFormat) => {
                 event.formattedtime = await AddonCalendar.formatEventTime(event, timeFormat);
 
                 return;
@@ -686,7 +675,6 @@ export default class AddonCalendarEventPage implements OnInit, OnDestroy {
         this.editEventObserver.off();
         this.syncObserver.off();
         this.manualSyncObserver.off();
-        this.onlineObserver.unsubscribe();
         this.newEventObserver.off();
         this.events?.destroy();
         this.appResumeSubscription.unsubscribe();

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnDestroy, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnDestroy, ElementRef, viewChild } from '@angular/core';
 
 import { AddonModQuizQuestionBasicData, CoreQuestionBaseComponent } from '@features/question/classes/base-question-component';
 import { CoreQuestionHelper } from '@features/question/services/question-helper';
@@ -30,7 +30,6 @@ import { CoreText } from '@singletons/text';
     selector: 'addon-qtype-ddmarker',
     templateUrl: 'addon-qtype-ddmarker.html',
     styleUrl: 'ddmarker.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
@@ -39,7 +38,7 @@ export class AddonQtypeDdMarkerComponent
     extends CoreQuestionBaseComponent<AddonQtypeDdMarkerQuestionData>
     implements OnDestroy {
 
-    @ViewChild('questiontext') questionTextEl?: ElementRef;
+    readonly questionTextEl = viewChild<ElementRef>('questiontext');
 
     protected questionInstance?: AddonQtypeDdMarkerQuestion;
     protected dropZones: unknown[] = []; // The drop zones received in the init object of the question.
@@ -47,10 +46,6 @@ export class AddonQtypeDdMarkerComponent
     protected destroyed = false;
     protected textIsRendered = false;
     protected ddAreaisRendered = false;
-
-    constructor(elementRef: ElementRef) {
-        super('AddonQtypeDdMarkerComponent', elementRef);
-    }
 
     /**
      * @inheritdoc
@@ -171,9 +166,13 @@ export class AddonQtypeDdMarkerComponent
             );
         }
 
-        if (this.questionTextEl) {
-            await CoreWait.waitForImages(this.questionTextEl.nativeElement);
+        const questionTextEl = this.questionTextEl();
+        if (questionTextEl) {
+            await CoreWait.waitForImages(questionTextEl.nativeElement);
         }
+
+        // Should not happen, but just in case we avoid creating duplicated instances.
+        this.questionInstance?.destroy();
 
         // Create the instance.
         this.questionInstance = new AddonQtypeDdMarkerQuestion(

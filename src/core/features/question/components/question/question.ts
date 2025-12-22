@@ -14,7 +14,19 @@
 
 import { ContextLevel } from '@/core/constants';
 import { toBoolean } from '@/core/transforms/boolean';
-import { Component, Input, Output, OnInit, EventEmitter, ChangeDetectorRef, Type, ElementRef, ViewChild } from '@angular/core';
+import {
+    Component,
+    Input,
+    Output,
+    OnInit,
+    EventEmitter,
+    ChangeDetectorRef,
+    Type,
+    ElementRef,
+    inject,
+    viewChild,
+    effect,
+} from '@angular/core';
 import { CorePromisedValue } from '@classes/promised-value';
 import { CoreQuestionBehaviourDelegate } from '@features/question/services/behaviour-delegate';
 import { CoreQuestionDelegate } from '@features/question/services/question-delegate';
@@ -38,7 +50,6 @@ import { CoreSharedModule } from '@/core/shared.module';
     selector: 'core-question',
     templateUrl: 'core-question.html',
     styleUrl: '../../question.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
@@ -59,14 +70,7 @@ export class CoreQuestionComponent implements OnInit, AsyncDirective {
     @Output() buttonClicked = new EventEmitter<CoreQuestionBehaviourButton>(); // Will emit when a behaviour button is clicked.
     @Output() onAbort= new EventEmitter<void>(); // Will emit an event if the question should be aborted.
 
-    @ViewChild(CoreDynamicComponent)
-        set dynComponent(el: CoreDynamicComponent<CoreQuestionBaseComponent>) {
-            if (!el) {
-                return;
-            }
-
-            this.promisedDynamicComponent.resolve(el);
-        }
+    readonly dynComponent = viewChild(CoreDynamicComponent<CoreQuestionBaseComponent>);
 
     componentClass?: Type<unknown>; // The class of the component to render.
     data: Record<string, unknown> = {}; // Data to pass to the component.
@@ -79,6 +83,9 @@ export class CoreQuestionComponent implements OnInit, AsyncDirective {
     protected showQuestionPromise = new CorePromisedValue<void>();
 
     protected logger: CoreLogger;
+
+    protected changeDetector = inject(ChangeDetectorRef);
+    protected element: HTMLElement = inject(ElementRef).nativeElement;
 
     get showQuestion(): boolean {
         return this.showQuestionPromise.isResolved();
@@ -94,9 +101,19 @@ export class CoreQuestionComponent implements OnInit, AsyncDirective {
         return dynamicComponent.ready();
     }
 
-    constructor(protected changeDetector: ChangeDetectorRef, private element: ElementRef) {
+    constructor() {
         this.logger = CoreLogger.getInstance('CoreQuestionComponent');
-        CoreDirectivesRegistry.register(this.element.nativeElement, this);
+        CoreDirectivesRegistry.register(this.element, this);
+
+        effect(() => {
+            const el = this.dynComponent();
+            if (!el) {
+                return;
+            }
+
+            this.promisedDynamicComponent.resolve(el);
+        });
+
     }
 
     /**

@@ -13,7 +13,7 @@
 // limitations under the License.
 import { ContextLevel } from '@/core/constants';
 import { CoreSharedModule } from '@/core/shared.module';
-import { ADDON_BLOG_ENTRY_UPDATED, ADDON_BLOG_SYNC_ID } from '@addons/blog/constants';
+import { ADDON_BLOG_ENTRY_UPDATED, ADDON_BLOG_SYNC_ID, CoreSiteBlogLevel } from '@addons/blog/constants';
 import {
     AddonBlog,
     AddonBlogAddEntryOption,
@@ -23,7 +23,7 @@ import {
     AddonBlogPublishState,
 } from '@addons/blog/services/blog';
 import { AddonBlogOffline } from '@addons/blog/services/blog-offline';
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, computed, ElementRef, OnDestroy, OnInit, signal, viewChild } from '@angular/core';
 import { AddonBlogSync } from '@addons/blog/services/blog-sync';
 import { FormControl, FormGroup, Validators } from '@angular/forms';
 import { CoreError } from '@classes/errors/error';
@@ -50,7 +50,6 @@ import { DEFAULT_TEXT_FORMAT } from '@singletons/text';
 @Component({
     selector: 'addon-blog-edit-entry',
     templateUrl: './edit-entry.html',
-    standalone: true,
     imports: [
         CoreEditorRichTextEditorComponent,
         CoreSharedModule,
@@ -58,7 +57,7 @@ import { DEFAULT_TEXT_FORMAT } from '@singletons/text';
 })
 export default class AddonBlogEditEntryPage implements CanLeave, OnInit, OnDestroy {
 
-    @ViewChild('editEntryForm') formElement!: ElementRef;
+    readonly formElement = viewChild.required<ElementRef<HTMLFormElement>>('editEntryForm');
 
     publishState = AddonBlogPublishState;
     form = new FormGroup({
@@ -77,8 +76,6 @@ export default class AddonBlogEditEntryPage implements CanLeave, OnInit, OnDestr
     maxFiles = 99;
     initialFiles: CoreFileEntry[] = [];
     files: CoreFileEntry[] = [];
-    courseId?: number;
-    modId?: number;
     userId?: number;
     associatedCourse?: CoreCourseBasicData;
     associatedModule?: CoreCourseModuleData;
@@ -91,6 +88,12 @@ export default class AddonBlogEditEntryPage implements CanLeave, OnInit, OnDestr
     siteHomeId?: number;
     forceLeave = false;
     isOfflineEntry = false;
+
+    protected courseId?: number;
+    protected modId?: number;
+    readonly blogLevel = signal(CoreSiteBlogLevel.BLOG_SITE_LEVEL);
+    readonly isUserLevel = computed(() => this.blogLevel() === CoreSiteBlogLevel.BLOG_USER_LEVEL);
+    readonly isGlobalLevel = computed(() => this.blogLevel() === CoreSiteBlogLevel.BLOG_GLOBAL_LEVEL);
 
     /**
      * Gives if the form is not pristine. (only for existing entries)
@@ -131,6 +134,13 @@ export default class AddonBlogEditEntryPage implements CanLeave, OnInit, OnDestr
 
         if (!site || !isEditingEnabled) {
             return CoreNavigator.back();
+        }
+
+        const blogLevel = Number(await site.getConfig('bloglevel'));
+        this.blogLevel.set(isNaN(blogLevel) ? CoreSiteBlogLevel.BLOG_SITE_LEVEL : blogLevel);
+
+        if (this.isUserLevel()) {
+            this.form.controls.publishState.setValue(AddonBlogPublishState.draft);
         }
 
         const entryId = CoreNavigator.getRouteParam('id');
@@ -213,7 +223,7 @@ export default class AddonBlogEditEntryPage implements CanLeave, OnInit, OnDestr
                 this.entry.summary,
                 this.entry.summaryfiles,
             ),
-            publishState: this.entry.publishstate ?? AddonBlogPublishState.site,
+            publishState: this.entry?.publishstate ?? AddonBlogPublishState.draft,
             associateWithCourse: this.form.controls.associateWithCourse.value,
             associateWithModule: this.form.controls.associateWithModule.value,
         });
@@ -422,7 +432,7 @@ export default class AddonBlogEditEntryPage implements CanLeave, OnInit, OnDestr
             await CoreAlerts.confirmLeaveWithChanges();
         }
 
-        CoreForms.triggerFormCancelledEvent(this.formElement, CoreSites.getCurrentSiteId());
+        CoreForms.triggerFormCancelledEvent(this.formElement(), CoreSites.getCurrentSiteId());
 
         return true;
     }
@@ -473,7 +483,7 @@ export default class AddonBlogEditEntryPage implements CanLeave, OnInit, OnDestr
 
         CoreEvents.trigger(ADDON_BLOG_ENTRY_UPDATED);
         this.forceLeave = true;
-        CoreForms.triggerFormSubmittedEvent(this.formElement, true, CoreSites.getCurrentSiteId());
+        CoreForms.triggerFormSubmittedEvent(this.formElement(), true, CoreSites.getCurrentSiteId());
 
         return CoreNavigator.back();
     }

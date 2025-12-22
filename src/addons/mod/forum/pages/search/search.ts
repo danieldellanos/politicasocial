@@ -39,7 +39,6 @@ import { CoreSearchGlobalSearchResultComponent } from '@features/search/componen
 @Component({
     selector: 'page-addon-mod-forum-search',
     templateUrl: 'search.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreSearchBoxComponent,
@@ -105,6 +104,12 @@ export default class AddonModForumSearchPage implements OnInit {
      * @param query Search query.
      */
     async search(query: string): Promise<void> {
+        if(query.trim() === '') {
+            this.clearSearch();
+
+            return;
+        }
+
         await this.ready;
 
         this.resultsSource.setQuery(query);
@@ -137,7 +142,7 @@ export default class AddonModForumSearchPage implements OnInit {
     /**
      * Clear search results.
      */
-    clearSearch(): void {
+    protected clearSearch(): void {
         this.loadMoreError = false;
 
         this.resultsSource.setQuery('');
@@ -161,7 +166,7 @@ export default class AddonModForumSearchPage implements OnInit {
     async loadMoreResults(complete: () => void ): Promise<void> {
         try {
             await this.resultsSource?.load();
-        } catch (error) {
+        } catch {
             this.loadMoreError = true;
         } finally {
             complete();

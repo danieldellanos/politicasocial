@@ -13,9 +13,8 @@
 // limitations under the License.
 
 import { CoreConstants } from '@/core/constants';
-import {  AfterViewInit, Directive, ElementRef, Input, OnDestroy } from '@angular/core';
+import { AfterViewInit, Directive, ElementRef, OnDestroy, inject, input } from '@angular/core';
 import { CoreSwipeNavigationItemsManager } from '@classes/items-management/swipe-navigation-items-manager';
-import { CoreSwipeNavigationTourComponent } from '@components/swipe-navigation-tour/swipe-navigation-tour';
 import { CoreUserTours } from '@features/usertours/services/user-tours';
 import { Gesture, GestureDetail } from '@ionic/angular';
 import { CorePlatform } from '@services/platform';
@@ -33,18 +32,15 @@ const SWIPE_FRICTION = 0.6;
  */
 @Directive({
     selector: 'ion-content[core-swipe-navigation]',
-    standalone: true,
 })
 export class CoreSwipeNavigationDirective implements AfterViewInit, OnDestroy {
 
-    @Input('core-swipe-navigation') manager?: CoreSwipeNavigationItemsManager;
+    readonly manager = input<CoreSwipeNavigationItemsManager>(undefined, { alias: 'core-swipe-navigation' });
 
-    protected element: HTMLElement;
+    protected element: HTMLElement = inject(ElementRef).nativeElement;
     protected swipeGesture?: Gesture;
 
-    constructor(el: ElementRef) {
-        this.element = el.nativeElement;
-
+    constructor() {
         if (CoreConstants.enableDevTools()) {
             this.element['swipeNavigation'] = this;
             this.element.classList.add('uses-swipe-navigation');
@@ -52,7 +48,7 @@ export class CoreSwipeNavigationDirective implements AfterViewInit, OnDestroy {
     }
 
     get enabled(): boolean {
-        return !!this.manager;
+        return !!this.manager();
     }
 
     /**
@@ -80,7 +76,7 @@ export class CoreSwipeNavigationDirective implements AfterViewInit, OnDestroy {
             },
         });
 
-        const source = this.manager?.getSource();
+        const source = this.manager()?.getSource();
         if (!source) {
             return;
         }
@@ -97,7 +93,8 @@ export class CoreSwipeNavigationDirective implements AfterViewInit, OnDestroy {
         // Show user tour.
         await CoreUserTours.showIfPending({
             id: 'swipe-navigation',
-            component: CoreSwipeNavigationTourComponent,
+            loadComponent: () =>
+                import('@features/usertours/components/swipe-navigation-tour/swipe-navigation-tour'),
             watch: this.element,
         });
     }
@@ -111,8 +108,8 @@ export class CoreSwipeNavigationDirective implements AfterViewInit, OnDestroy {
         }
 
         CorePlatform.isRTL
-            ? this.manager?.navigateToPreviousItem()
-            : this.manager?.navigateToNextItem();
+            ? this.manager()?.navigateToPreviousItem()
+            : this.manager()?.navigateToNextItem();
     }
 
     /**
@@ -124,8 +121,8 @@ export class CoreSwipeNavigationDirective implements AfterViewInit, OnDestroy {
         }
 
         CorePlatform.isRTL
-            ? this.manager?.navigateToNextItem()
-            : this.manager?.navigateToPreviousItem();
+            ? this.manager()?.navigateToNextItem()
+            : this.manager()?.navigateToPreviousItem();
     }
 
     /**
@@ -134,13 +131,14 @@ export class CoreSwipeNavigationDirective implements AfterViewInit, OnDestroy {
      * @returns If has an item to the right.
      */
     protected async hasItemRight(): Promise<boolean> {
-        if (!this.manager) {
+        const manager = this.manager();
+        if (!manager) {
             return false;
         }
 
         return CorePlatform.isRTL
-            ? await this.manager.hasNextItem()
-            : await this.manager.hasPreviousItem();
+            ? await manager.hasNextItem()
+            : await manager.hasPreviousItem();
     }
 
     /**
@@ -149,13 +147,14 @@ export class CoreSwipeNavigationDirective implements AfterViewInit, OnDestroy {
      * @returns If has an item to the left.
      */
     protected async hasItemLeft(): Promise<boolean> {
-        if (!this.manager) {
+        const manager = this.manager();
+        if (!manager) {
             return false;
         }
 
         return CorePlatform.isRTL
-            ? await this.manager.hasPreviousItem()
-            : await this.manager.hasNextItem();
+            ? await manager.hasPreviousItem()
+            : await manager.hasNextItem();
     }
 
     /**

@@ -37,7 +37,6 @@ import { CoreSharedModule } from '@/core/shared.module';
     selector: 'core-course-module-completion',
     templateUrl: 'core-course-module-completion.html',
     styleUrl: 'module-completion.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
     ],
@@ -62,8 +61,7 @@ export class CoreCourseModuleCompletionComponent
             return;
         }
 
-        const hasConditions = !this.completion.isautomatic || (this.completion.details?.length || 0) > 0;
-        this.showCompletionInfo = hasConditions && (this.showCompletionConditions || this.showManualCompletion);
+        this.showCompletionInfo = this.showCompletionConditions || this.showManualCompletion;
         if (!this.showCompletionInfo) {
             return;
         }

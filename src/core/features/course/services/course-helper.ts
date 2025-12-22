@@ -461,10 +461,6 @@ export class CoreCourseHelperProvider {
         alwaysConfirm = false,
     ): Promise<void> {
         let hasEmbeddedFiles = false;
-        const sizeSum: CoreFileSizeSum = {
-            size: 0,
-            total: true,
-        };
 
         const getSectionSize = async (section: CoreCourseWSSection): Promise<CoreFileSizeSum> => {
             if (section.id === CORE_COURSE_ALL_SECTIONS_ID) {
@@ -489,13 +485,12 @@ export class CoreCourseHelperProvider {
             }), { size: 0, total: true });
         };
 
-        await Promise.all(sections.map(async (section) => {
-            await getSectionSize(section);
-        }));
+        const sectionsSizes = await Promise.all(sections.map((section) => getSectionSize(section)));
 
-        if (hasEmbeddedFiles) {
-            sizeSum.total = false;
-        }
+        const sizeSum = sectionsSizes.reduce((sizeSum, contentSize) => ({
+            size: sizeSum.size + contentSize.size,
+            total: sizeSum.total && contentSize.total,
+        }), { size: 0, total: !hasEmbeddedFiles });
 
         // Show confirm modal if needed.
         await CoreAlerts.confirmDownloadSize(sizeSum, { alwaysConfirm });
@@ -567,9 +562,6 @@ export class CoreCourseHelperProvider {
                     accessData.requiresUserInput = result.requiresUserInput ?? accessData.requiresUserInput;
                 }
             });
-
-            // eslint-disable-next-line deprecation/deprecation
-            accessData.passwordRequired = accessData.requiresUserInput; // For backwards compatibility.
 
             return accessData;
         } catch {
@@ -806,7 +798,7 @@ export class CoreCourseHelperProvider {
             try {
                 // Get the local file URL.
                 path = await CoreFilepool.getInternalUrlByUrl(siteId, mainFile.fileurl);
-            } catch (error){
+            } catch {
                 // File not found, mark the module as not downloaded.
                 await CoreFilepool.storePackageStatus(siteId, DownloadStatus.DOWNLOADABLE_NOT_DOWNLOADED, component, componentId);
             }
@@ -989,7 +981,16 @@ export class CoreCourseHelperProvider {
      * @param siteId Site ID. If not defined, current site.
      * @returns Promise resolved when done.
      */
-    async getAndOpenCourse(courseId: number, params?: Params, siteId?: string): Promise<void> {
+    async getAndOpenCourse(courseId: number, params: Params = {}, siteId?: string): Promise<void> {
+        siteId = siteId ?? CoreSites.getCurrentSiteId();
+
+        // Do not navigate if the course is already being displayed.
+        if (siteId === CoreSites.getCurrentSiteId() && CoreCourse.currentViewIsCourse(courseId)) {
+            CoreCourse.selectCourseTab(params.selectedTab, params);
+
+            return;
+        }
+
         const modal = await CoreLoadings.show();
 
         let course: CoreCourseAnyCourseData | { id: number };
@@ -1118,21 +1119,40 @@ export class CoreCourseHelperProvider {
      * @param module The module.
      * @param siteId Site ID. If not defined, current site.
      * @returns Promise resolved when done.
+     * @deprecated since 5.1. Use loadOfflineCompletionData instead.
      */
     async loadModuleOfflineCompletion(courseId: number, module: CoreCourseModuleData, siteId?: string): Promise<void> {
-        if (!module.completiondata) {
+        module.completiondata = await this.loadOfflineCompletionData(module.id, module.completiondata, siteId);
+    }
+
+    /**
+     * Given a completion info, load the offline completion any and return the completion with the offline data added.
+     *
+     * @param cmId The module ID.
+     * @param completiondata The completion data.
+     * @param siteId Site ID. If not defined, current site.
+     * @returns Completion data with offline info added if there's any.
+     */
+    async loadOfflineCompletionData(
+        cmId: number,
+        completiondata?: CoreCourseModuleCompletionData,
+        siteId?: string,
+    ): Promise<CoreCourseModuleCompletionData | undefined> {
+        if (!completiondata) {
             return;
         }
 
-        const offlineCompletions = await CoreCourseOffline.getCourseManualCompletions(courseId, siteId);
+        const offlineCompletion = await CorePromiseUtils.ignoreErrors(CoreCourseOffline.getManualCompletion(cmId, siteId));
 
-        const offlineCompletion = offlineCompletions.find(completion => completion.cmid == module.id);
-
-        if (offlineCompletion && offlineCompletion.timecompleted >= module.completiondata.timecompleted * 1000) {
-            // The module has offline completion. Load it.
-            module.completiondata.state = offlineCompletion.completed;
-            module.completiondata.offline = true;
+        if (offlineCompletion && offlineCompletion.timecompleted >= completiondata.timecompleted * 1000) {
+            return {
+                ...completiondata,
+                state: offlineCompletion.completed,
+                offline: true,
+            };
         }
+
+        return completiondata;
     }
 
     /**
@@ -1476,7 +1496,7 @@ export class CoreCourseHelperProvider {
                 modNavOptions: options.modNavOptions,
             };
 
-            if (courseId == site.getSiteHomeId()) {
+            if (courseId === site.getSiteHomeId()) {
                 // Check if site home is available.
                 const isAvailable = await CoreSiteHome.isAvailable();
 
@@ -1831,7 +1851,7 @@ export class CoreCourseHelperProvider {
         navOptions?: CoreNavigationOptions & { siteId?: string },
     ): Promise<void> {
         const siteId = navOptions?.siteId;
-        if (!siteId || siteId == CoreSites.getCurrentSiteId()) {
+        if (!siteId || siteId === CoreSites.getCurrentSiteId()) {
             // Current site, we can open the course.
             return CoreCourse.openCourse(course, navOptions);
         } else {
@@ -2347,8 +2367,4 @@ export type CoreCourseOpenModuleOptions = {
 export type CoreCourseGuestAccessInfo = {
     guestAccess: boolean; // Whether guest access is enabled for a course.
     requiresUserInput?: boolean; // Whether the first guest access enrolment method requires user input.
-    /**
-     * @deprecated since 4.3. Use requiresUserInput instead.
-     */
-    passwordRequired?: boolean;
 };

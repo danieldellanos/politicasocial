@@ -35,7 +35,7 @@ import { CoreHTMLClasses } from '@singletons/html-classes';
 import { CoreDom, VerticalPoint } from '@singletons/dom';
 import { CoreAlerts } from '@services/overlays/alerts';
 import { PromptButton } from '@services/overlays/prompts';
-import { CoreBoostrap } from '@singletons/bootstrap';
+import { CoreBootstrap } from '@singletons/bootstrap';
 import { CoreAngular } from '@singletons/angular';
 
 /**
@@ -216,10 +216,10 @@ export class CoreDomUtilsProvider {
      * Handle bootstrap tooltips in a certain element.
      *
      * @param element Element to check.
-     * @deprecated since 5.0. Use CoreBoostrap.handleBootstrapTooltipsAndPopovers instead.
+     * @deprecated since 5.0. Use CoreBootstrap.handleJS instead.
      */
     handleBootstrapTooltips(element: HTMLElement): void {
-        CoreBoostrap.handleBootstrapTooltipsAndPopovers(element);
+        CoreBootstrap.handleJS(element);
     }
 
     /**
@@ -516,7 +516,7 @@ export class CoreDomUtilsProvider {
         needsTranslate?: boolean,
         autoCloseTime?: number,
     ): Promise<HTMLIonAlertElement | null> {
-        // eslint-disable-next-line deprecation/deprecation
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
         return this.showErrorModalDefault(warnings?.[0], defaultError, needsTranslate, autoCloseTime);
     }
 
@@ -845,5 +845,5 @@ export class CoreDomUtilsProvider {
 /**
  * @deprecated since 4.5. Use CoreDom instead.
  */
-// eslint-disable-next-line deprecation/deprecation
+// eslint-disable-next-line @typescript-eslint/no-deprecated
 export const CoreDomUtils = makeSingleton(CoreDomUtilsProvider);

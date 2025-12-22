@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, viewChild } from '@angular/core';
 import { AccordionGroupChangeEventDetail, IonAccordionGroup, IonContent } from '@ionic/angular';
 import { CoreEventObserver, CoreEvents } from '@singletons/events';
 import { CoreSites } from '@services/sites';
@@ -65,7 +65,6 @@ const enum AddonMessagesGroupConversationOptionNames {
     selector: 'page-addon-messages-group-conversations',
     templateUrl: 'group-conversations.html',
     styleUrl: '../../messages-common.scss',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreMainMenuUserButtonComponent,
@@ -73,9 +72,9 @@ const enum AddonMessagesGroupConversationOptionNames {
 })
 export default class AddonMessagesGroupConversationsPage implements OnInit, OnDestroy {
 
-    @ViewChild(CoreSplitViewComponent) splitView!: CoreSplitViewComponent;
-    @ViewChild(IonContent) content?: IonContent;
-    @ViewChild('accordionGroup', { static: true }) accordionGroup!: IonAccordionGroup;
+    readonly splitView = viewChild.required(CoreSplitViewComponent);
+    readonly content = viewChild.required(IonContent);
+    readonly accordionGroup = viewChild.required<IonAccordionGroup>('accordionGroup');
 
     loaded = false;
     loadingMessage: string;
@@ -130,10 +129,9 @@ export default class AddonMessagesGroupConversationsPage implements OnInit, OnDe
     protected contactRequestsCountObserver: CoreEventObserver;
     protected memberInfoObserver: CoreEventObserver;
     protected firstExpand = false;
+    protected route = inject(ActivatedRoute);
 
-    constructor(
-        protected route: ActivatedRoute,
-    ) {
+    constructor() {
         this.loadingMessage = Translate.instant('core.loading');
         this.siteId = CoreSites.getCurrentSiteId();
         this.currentUserId = CoreSites.getCurrentSiteUserId();
@@ -191,7 +189,7 @@ export default class AddonMessagesGroupConversationsPage implements OnInit, OnDe
 
                     if (isNewer) {
                         // The last message is newer than the previous one, scroll to top to keep viewing the conversation.
-                        this.content?.scrollToTop();
+                        this.content().scrollToTop();
                     }
                 }
             },
@@ -316,10 +314,10 @@ export default class AddonMessagesGroupConversationsPage implements OnInit, OnDe
      * @inheritdoc
      */
     async ngOnInit(): Promise<void> {
-        this.route.queryParams.subscribe(async (params) => {
+        this.route.queryParams.subscribe(async (queryParams) => {
             // When a child page loads this callback is triggered too.
-            const conversationId = CoreNavigator.getRouteNumberParam('conversationId', { params });
-            const userId = CoreNavigator.getRouteNumberParam('userId', { params });
+            const conversationId = CoreNavigator.getRouteNumberParam('conversationId', { queryParams });
+            const userId = CoreNavigator.getRouteNumberParam('userId', { queryParams });
             if (conversationId || userId) {
                 // Update the selected ones.
                 this.selectedConversationId = conversationId;
@@ -409,7 +407,7 @@ export default class AddonMessagesGroupConversationsPage implements OnInit, OnDe
                 expandOption = this.getConversationGroupByName(AddonMessagesGroupConversationOptionNames.INDIVIDUAL);
             }
 
-            this.accordionGroup.value = expandOption.optionName;
+            this.accordionGroup().value = expandOption.optionName;
 
             this.firstExpand = true;
         }
@@ -563,8 +561,9 @@ export default class AddonMessagesGroupConversationsPage implements OnInit, OnDe
      * @returns Option currently expanded.
      */
     protected getExpandedOption(): AddonMessagesGroupConversationOption | undefined {
-        if (this.accordionGroup.value) {
-            return this.getConversationGroupByName(this.accordionGroup.value as AddonMessagesGroupConversationOptionNames);
+        const accordionGroup = this.accordionGroup();
+        if (accordionGroup.value) {
+            return this.getConversationGroupByName(accordionGroup.value as AddonMessagesGroupConversationOptionNames);
         }
     }
 
@@ -594,9 +593,10 @@ export default class AddonMessagesGroupConversationsPage implements OnInit, OnDe
         const path = CoreNavigator.getRelativePathToParent('/messages/group-conversations') + 'discussion/' +
             (conversationId ? conversationId : `user/${userId}`);
 
+        const splitView = this.splitView();
         await CoreNavigator.navigate(path, {
             params,
-            reset: CoreScreen.isTablet && !!this.splitView && !this.splitView.isNested,
+            reset: CoreScreen.isTablet && !!splitView && !splitView.isNested,
         });
     }
 
@@ -814,12 +814,12 @@ export default class AddonMessagesGroupConversationsPage implements OnInit, OnDe
     protected async expandOption(option: AddonMessagesGroupConversationOption, getCounts = false): Promise<void> {
         // Collapse all and expand the right one.
         option.loading = true;
-        this.accordionGroup.value = option.optionName;
+        this.accordionGroup().value = option.optionName;
 
         try {
             await this.fetchDataForOption(option, false, getCounts);
         } catch (error) {
-            this.accordionGroup.value = undefined;
+            this.accordionGroup().value = undefined;
 
             throw error;
         } finally {

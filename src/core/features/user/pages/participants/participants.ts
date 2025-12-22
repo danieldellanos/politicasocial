@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { AfterViewInit, Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, OnDestroy, OnInit, viewChild } from '@angular/core';
 import { CoreNavigator } from '@services/navigator';
 import { CoreListItemsManager } from '@classes/items-management/list-items-manager';
 import { CoreSplitViewComponent } from '@components/split-view/split-view';
@@ -33,7 +33,6 @@ import { CoreSearchBoxComponent } from '../../../search/components/search-box/se
 @Component({
     selector: 'page-core-user-participants',
     templateUrl: 'participants.html',
-    standalone: true,
     imports: [
         CoreSharedModule,
         CoreSearchBoxComponent,
@@ -48,7 +47,7 @@ export default class CoreUserParticipantsPage implements OnInit, AfterViewInit, 
     searchEnabled = false;
     fetchMoreParticipantsFailed = false;
 
-    @ViewChild(CoreSplitViewComponent) splitView!: CoreSplitViewComponent;
+    readonly splitView = viewChild.required(CoreSplitViewComponent);
 
     constructor() {
         try {
@@ -70,7 +69,7 @@ export default class CoreUserParticipantsPage implements OnInit, AfterViewInit, 
      * @inheritdoc
      */
     async ngOnInit(): Promise<void> {
-        this.searchEnabled = await CoreUser.canSearchParticipantsInSite();
+        this.searchEnabled = CoreUser.canSearchParticipantsInSite();
     }
 
     /**
@@ -78,7 +77,7 @@ export default class CoreUserParticipantsPage implements OnInit, AfterViewInit, 
      */
     async ngAfterViewInit(): Promise<void> {
         await this.fetchInitialParticipants();
-        await this.participants.start(this.splitView);
+        await this.participants.start(this.splitView());
     }
 
     /**
@@ -98,7 +97,7 @@ export default class CoreUserParticipantsPage implements OnInit, AfterViewInit, 
     /**
      * Clear search.
      */
-    async clearSearch(): Promise<void> {
+    protected async clearSearch(): Promise<void> {
         if (this.searchQuery === null) {
             // Nothing to clear.
             return;
@@ -119,6 +118,12 @@ export default class CoreUserParticipantsPage implements OnInit, AfterViewInit, 
      * @param query Text to search for.
      */
     async search(query: string): Promise<void> {
+        if (query.trim() === '') {
+            this.clearSearch();
+
+            return;
+        }
+
         CoreKeyboard.close();
 
         const newSource = CoreRoutedItemsManagerSourcesTracker.getOrCreateSource(
@@ -202,14 +207,14 @@ class CoreUserParticipantsManager
      * @inheritdoc
      */
     protected async logActivity(): Promise<void> {
-        await CorePromiseUtils.ignoreErrors(CoreUser.logParticipantsView(this.getSource().COURSE_ID));
+        await CorePromiseUtils.ignoreErrors(CoreUser.logParticipantsView(this.getSource().courseId));
 
         CoreAnalytics.logEvent({
             type: CoreAnalyticsEventType.VIEW_ITEM_LIST,
             ws: 'core_user_view_user_list',
             name: Translate.instant('core.user.participants'),
-            data: { courseid: this.getSource().COURSE_ID, category: 'user' },
-            url: `/user/index.php?id=${this.getSource().COURSE_ID}`,
+            data: { courseid: this.getSource().courseId, category: 'user' },
+            url: `/user/index.php?id=${this.getSource().courseId}`,
         });
     }
 
