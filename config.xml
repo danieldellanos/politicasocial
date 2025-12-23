@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget android-versionCode="50303" id="com.politicasocial.mobile" ios-CFBundleVersion="5.0.3.3" version="5.0.3" versionCode="50303" xmlns="http://www.w3.org/ns/widgets" xmlns:android="http://schemas.android.com/apk/res/android" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+<widget android-versionCode="50400" id="com.politicasocial.mobile" ios-CFBundleVersion="5.0.4.0" version="5.0.4" versionCode="50400" xmlns="http://www.w3.org/ns/widgets" xmlns:android="http://schemas.android.com/apk/res/android" xmlns:cdv="http://cordova.apache.org/ns/1.0">
     <name>Política Social</name>
     <description>Polítical Social Xunta App</description>
     <author email="info@itoptraining.com" href="http://moodle.com">iTopTraining Mobile team</author>
