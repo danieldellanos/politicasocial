@@ -47,10 +47,10 @@ module.exports = function(context) {
         xcodeProject.parseSync();
 
         // Set Swift version and bridging header settings
-        xcodeProject.addBuildProperty('SWIFT_VERSION', '5.0');
+        xcodeProject.addBuildProperty('SWIFT_VERSION', '"5.0"');
         xcodeProject.addBuildProperty('ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES', 'YES');
-        xcodeProject.addBuildProperty('SWIFT_OBJC_BRIDGING_HEADER', '$(PROJECT_DIR)/$(PROJECT_NAME)/Bridging-Header.h');
-        xcodeProject.addBuildProperty('SWIFT_OBJC_INTERFACE_HEADER_NAME', '$(SWIFT_MODULE_NAME)-Swift.h');
+        xcodeProject.addBuildProperty('SWIFT_OBJC_BRIDGING_HEADER', '"$(PROJECT_DIR)/$(PROJECT_NAME)/Bridging-Header.h"');
+        xcodeProject.addBuildProperty('SWIFT_OBJC_INTERFACE_HEADER_NAME', '"$(SWIFT_MODULE_NAME)-Swift.h"');
 
         // Don't override LD_RUNPATH_SEARCH_PATHS if it already exists
         const buildSettings = xcodeProject.pbxXCBuildConfigurationSection();
