@@ -5,11 +5,11 @@
     <js-module src="www/index.js" name="moodleapp">
         <clobbers target="cordova.MoodleApp" />
     </js-module>
-    
+
     <!-- Hook to configure Swift support in iOS -->
     <hook type="after_platform_add" src="scripts/ios-swift-support.js" />
     <hook type="after_prepare" src="scripts/ios-swift-support.js" />
-    
+
     <platform name="android">
         <framework src="com.android.installreferrer:installreferrer:2.2" />
         <config-file target="res/xml/config.xml" parent="/*">

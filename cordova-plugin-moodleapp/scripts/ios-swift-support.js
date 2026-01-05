@@ -23,7 +23,7 @@ module.exports = function(context) {
     }
 
     const iosPlatformPath = path.join(context.opts.projectRoot, 'platforms', 'ios');
-    
+
     if (!fs.existsSync(iosPlatformPath)) {
         console.log('iOS platform not found, skipping Swift configuration');
         return;
@@ -51,11 +51,11 @@ module.exports = function(context) {
         xcodeProject.addBuildProperty('ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES', 'YES');
         xcodeProject.addBuildProperty('SWIFT_OBJC_BRIDGING_HEADER', '$(PROJECT_DIR)/$(PROJECT_NAME)/Bridging-Header.h');
         xcodeProject.addBuildProperty('SWIFT_OBJC_INTERFACE_HEADER_NAME', '$(SWIFT_MODULE_NAME)-Swift.h');
-        
+
         // Don't override LD_RUNPATH_SEARCH_PATHS if it already exists
         const buildSettings = xcodeProject.pbxXCBuildConfigurationSection();
         let hasLdRunpathSearchPaths = false;
-        
+
         for (const key in buildSettings) {
             const config = buildSettings[key];
             if (config.buildSettings && config.buildSettings.LD_RUNPATH_SEARCH_PATHS) {
@@ -63,7 +63,7 @@ module.exports = function(context) {
                 break;
             }
         }
-        
+
         if (!hasLdRunpathSearchPaths) {
             xcodeProject.addBuildProperty('LD_RUNPATH_SEARCH_PATHS', [
                 '$(inherited)',

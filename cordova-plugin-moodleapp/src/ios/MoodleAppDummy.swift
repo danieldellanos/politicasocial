@@ -19,7 +19,7 @@ import Foundation
  * This is required for the phonegap-plugin-push to compile correctly.
  */
 @objc class MoodleAppDummy: NSObject {
-    
+
     @objc static func initialize() {
         // This is intentionally empty
     }
