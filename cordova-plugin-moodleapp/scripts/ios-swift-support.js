@@ -9,38 +9,41 @@ const fs = require('fs');
 const path = require('path');
 
 module.exports = function(context) {
-    const xcode = context.requireCordovaModule('xcode');
-    const Q = context.requireCordovaModule('q');
-    const deferral = new Q.defer();
+    // Use regular require for npm modules
+    let xcode;
+    try {
+        xcode = require('xcode');
+    } catch (e) {
+        console.log('xcode module not found, skipping Swift configuration');
+        return;
+    }
 
-    if (context.opts.platforms.indexOf('ios') < 0) {
+    if (!context.opts.platforms || context.opts.platforms.indexOf('ios') < 0) {
         return;
     }
 
     const iosPlatformPath = path.join(context.opts.projectRoot, 'platforms', 'ios');
     
-    fs.readdir(iosPlatformPath, function (err, data) {
-        if (err) {
-            console.error('Error reading iOS platform directory:', err);
-            deferral.reject();
-            return;
-        }
+    if (!fs.existsSync(iosPlatformPath)) {
+        console.log('iOS platform not found, skipping Swift configuration');
+        return;
+    }
 
-        const projFolder = data.filter(function (file) {
-            return file.match(/\.xcodeproj$/);
-        })[0];
+    const files = fs.readdirSync(iosPlatformPath);
+    const projFolder = files.find(function (file) {
+        return file.match(/\.xcodeproj$/);
+    });
 
-        if (!projFolder) {
-            console.error('Could not find Xcode project folder');
-            deferral.reject();
-            return;
-        }
+    if (!projFolder) {
+        console.log('Could not find Xcode project folder');
+        return;
+    }
 
-        const projectPath = path.join(iosPlatformPath, projFolder, 'project.pbxproj');
-        console.log('Configuring Xcode project at:', projectPath);
+    const projectPath = path.join(iosPlatformPath, projFolder, 'project.pbxproj');
+    console.log('Configuring Xcode project at:', projectPath);
 
+    try {
         const xcodeProject = xcode.project(projectPath);
-
         xcodeProject.parseSync();
 
         // Set Swift version and bridging header settings
@@ -48,12 +51,29 @@ module.exports = function(context) {
         xcodeProject.addBuildProperty('ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES', 'YES');
         xcodeProject.addBuildProperty('SWIFT_OBJC_BRIDGING_HEADER', '$(PROJECT_DIR)/$(PROJECT_NAME)/Bridging-Header.h');
         xcodeProject.addBuildProperty('SWIFT_OBJC_INTERFACE_HEADER_NAME', '$(SWIFT_MODULE_NAME)-Swift.h');
+        
+        // Don't override LD_RUNPATH_SEARCH_PATHS if it already exists
+        const buildSettings = xcodeProject.pbxXCBuildConfigurationSection();
+        let hasLdRunpathSearchPaths = false;
+        
+        for (const key in buildSettings) {
+            const config = buildSettings[key];
+            if (config.buildSettings && config.buildSettings.LD_RUNPATH_SEARCH_PATHS) {
+                hasLdRunpathSearchPaths = true;
+                break;
+            }
+        }
+        
+        if (!hasLdRunpathSearchPaths) {
+            xcodeProject.addBuildProperty('LD_RUNPATH_SEARCH_PATHS', [
+                '$(inherited)',
+                '@executable_path/Frameworks'
+            ]);
+        }
 
         fs.writeFileSync(projectPath, xcodeProject.writeSync());
         console.log('Successfully configured Swift settings in Xcode project');
-
-        deferral.resolve();
-    });
-
-    return deferral.promise;
+    } catch (error) {
+        console.error('Error configuring Swift settings:', error);
+    }
 };
