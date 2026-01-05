@@ -18,9 +18,11 @@ import Foundation
  * Dummy Swift file to force Xcode to generate the bridging header (Moodle-Swift.h)
  * This is required for the phonegap-plugin-push to compile correctly.
  */
-@objc class MoodleAppDummy: NSObject {
-
-    @objc static func initialize() {
-        // This is intentionally empty
+@objc public class MoodleAppDummy: NSObject {
+    
+    @objc public static let shared = MoodleAppDummy()
+    
+    @objc public func setup() {
+        // This is intentionally empty - just exists to ensure Swift compilation
     }
 }
